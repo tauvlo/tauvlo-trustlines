@@ -1,5 +1,3 @@
-use snforge_std::declare;
-
 
 #[test]
 fn example_passing_test() {
