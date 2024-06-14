@@ -1,4 +1,9 @@
 # tauvlo-trustlines
+
+---
+### Disclaimer: This is work in progress.
+---
+
 This repo contains code for ERC20 token enhanced with trustlines. 
 
 ## Developement
