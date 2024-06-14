@@ -1,5 +1,3 @@
-
-
 #[starknet::contract]
 mod trustERC20 {
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
@@ -37,5 +35,4 @@ mod trustERC20 {
         self.erc20._mint(recipient, initial_supply);
     }
 }
-
 
