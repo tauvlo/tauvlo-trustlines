@@ -1,4 +1,3 @@
-
 #[test]
 fn example_passing_test() {
     assert(1 == 1, 'This should pass');
