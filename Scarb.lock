@@ -12,7 +12,7 @@ version = "0.23.0"
 source = "git+https://github.com/foundry-rs/starknet-foundry.git?tag=v0.23.0#f2bff8f796763ada77fe6033ec1b034ceee22abd"
 
 [[package]]
-name = "tauvlo_trustlines"
+name = "trustlines_erc"
 version = "0.1.0"
 dependencies = [
  "openzeppelin",

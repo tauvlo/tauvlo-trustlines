@@ -1,5 +1,5 @@
 [package]
-name = "tauvlo_trustlines"
+name = "trustlines_erc"
 description = "ERC20 token with trustlines"
 version = "0.1.0"
 edition = "2023_11"

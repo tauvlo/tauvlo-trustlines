@@ -17,8 +17,7 @@ pub(crate) fn THIRD_PARTY() -> ContractAddress {
     contract_address_const::<'THIRD_PARTY'>()
 }
 
-
-fn deploy_token(
+pub(crate) fn deploy_token(
     initial_supply: u256,
     recipient: ContractAddress,
     owner: ContractAddress,
@@ -40,7 +39,7 @@ fn deploy_token(
     token_address
 }
 
-#[test]
-fn tmp() {
-    let _ = deploy_token(0, OWNER(), OWNER(), ISSUER(), THIRD_PARTY());
-}
+// #[test]
+// fn tmp() {
+//     let _ = deploy_token(0, OWNER(), OWNER(), ISSUER(), THIRD_PARTY());
+// }
