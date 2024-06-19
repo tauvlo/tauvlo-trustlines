@@ -3,9 +3,8 @@ use starknet::ContractAddress;
 use starknet::contract_address_const;
 
 use snforge_std::{
-    declare, 
-    ContractClassTrait, 
-    // start_prank, stop_prank, start_warp, stop_warp, ContractClass, start_mock_call, stop_mock_call, start_roll
+    declare,
+    ContractClassTrait, // start_prank, stop_prank, start_warp, stop_warp, ContractClass, start_mock_call, stop_mock_call, start_roll
 };
 
 pub(crate) fn OWNER() -> ContractAddress {
@@ -26,7 +25,6 @@ fn deploy_token(
     issuer: ContractAddress,
     third_party: ContractAddress, // TODO: Better name for last role
 ) -> ContractAddress {
-    
     let token_contract = declare("trustERC20").unwrap();
 
     let mut token_deploy_calldata = ArrayTrait::<felt252>::new();
@@ -44,11 +42,5 @@ fn deploy_token(
 
 #[test]
 fn tmp() {
-    let _ = deploy_token(
-        0,
-        OWNER(),
-        OWNER(),
-        ISSUER(),
-        THIRD_PARTY()
-    );
+    let _ = deploy_token(0, OWNER(), OWNER(), ISSUER(), THIRD_PARTY());
 }

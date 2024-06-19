@@ -1,7 +1,1 @@
-
-use trustlines_erc::tests::utils::{
-    deploy_token,
-    OWNER,
-    ISSUER,
-
-};
+use trustlines_erc::tests::utils::{deploy_token, OWNER, ISSUER,};
