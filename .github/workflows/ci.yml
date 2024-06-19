@@ -3,7 +3,7 @@ on: push
 
 env:
   SCARB_VERSION: 2.6.3
-  FOUNDRY_VERSION: 0.25.0
+  FOUNDRY_VERSION: 0.23.0
 
 jobs:
   build:
