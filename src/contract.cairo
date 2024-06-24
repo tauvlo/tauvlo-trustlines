@@ -1,3 +1,8 @@
+#[starknet::interface]
+pub trait ITrustlines<TState> {
+    fn dummy_function(self: @TState) -> u256;
+}
+
 #[starknet::contract]
 mod trustERC20 {
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
@@ -10,9 +15,12 @@ mod trustERC20 {
     use trustlines_erc::constants::ISSUER_ROLE;
     use trustlines_erc::constants::THIRD_PARTY_ROLE;
 
+    use trustlines_erc::trustlines::TrustlinesComponent;
+
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
+    component!(path: TrustlinesComponent, storage: trustlines, event: TrustlinesEvent);
 
     // ERC20 Mixin
     #[abi(embed_v0)]
@@ -29,6 +37,8 @@ mod trustERC20 {
     #[abi(embed_v0)]
     impl SRC5Impl = SRC5Component::SRC5Impl<ContractState>;
 
+    // Trustlines
+    impl TrustlinesInternalImpl = TrustlinesComponent::InternalImpl<ContractState>;
 
     #[storage]
     struct Storage {
@@ -38,6 +48,8 @@ mod trustERC20 {
         erc20: ERC20Component::Storage,
         #[substorage(v0)]
         accesscontrol: AccessControlComponent::Storage,
+        #[substorage(v0)]
+        trustlines: TrustlinesComponent::Storage
     }
 
     #[event]
@@ -49,6 +61,8 @@ mod trustERC20 {
         AccessControlEvent: AccessControlComponent::Event,
         #[flat]
         SRC5Event: SRC5Component::Event,
+        #[flat]
+        TrustlinesEvent: TrustlinesComponent::Event,
     }
 
     #[constructor]
@@ -73,5 +87,12 @@ mod trustERC20 {
         self.accesscontrol._grant_role(OWNER_ROLE, owner);
         self.accesscontrol._grant_role(ISSUER_ROLE, issuer);
         self.accesscontrol._grant_role(THIRD_PARTY_ROLE, third_party);
+    }
+
+    #[abi(embed_v0)]
+    impl Trustlines of super::ITrustlines<ContractState> {
+        fn dummy_function(self: @ContractState) -> u256 {
+            self.trustlines.dummy_function()
+        }
     }
 }
