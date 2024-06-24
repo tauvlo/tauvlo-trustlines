@@ -1,45 +1,3 @@
-use starknet::ContractAddress;
-
-#[starknet::interface]
-pub trait ItrustERC20<TState> {
-    // ERC20 functions
-    fn total_supply(self: @TState) -> u256;
-    fn balance_of(self: @TState, account: ContractAddress) -> u256;
-    fn allowance(self: @TState, owner: ContractAddress, spender: ContractAddress) -> u256;
-    fn transfer(ref self: TState, recipient: ContractAddress, amount: u256) -> bool;
-    fn transfer_from(
-        ref self: TState, sender: ContractAddress, recipient: ContractAddress, amount: u256
-    ) -> bool;
-    fn approve(ref self: TState, spender: ContractAddress, amount: u256) -> bool;
-    fn name(self: @TState) -> ByteArray;
-    fn symbol(self: @TState) -> ByteArray;
-    fn decimals(self: @TState) -> u8;
-
-    // AccessControl
-    fn has_role(self: @TState, role: felt252, account: ContractAddress) -> bool;
-    fn get_role_admin(self: @TState, role: felt252) -> felt252;
-    fn grant_role(ref self: TState, role: felt252, account: ContractAddress);
-    fn revoke_role(ref self: TState, role: felt252, account: ContractAddress);
-    fn renounce_role(ref self: TState, role: felt252, account: ContractAddress);
-}
-
-#[starknet::interface]
-pub trait ITrustlines<TState> { }
-
-struct Trustline {
-    party_1: ContractAddress,
-    party_2: ContractAddress,
-    amount: u256
-}
-
-// Situation 1
-// 
-
-
-pub const OWNER_ROLE: felt252 = selector!("OWNER_ROLE");
-pub const ISSUER_ROLE: felt252 = selector!("ISSUER_ROLE");
-pub const THIRD_PARTY_ROLE: felt252 = selector!("THIRD_ROLE"); //  TODO: Better name
-
 #[starknet::contract]
 mod trustERC20 {
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
@@ -48,9 +6,9 @@ mod trustERC20 {
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
 
-    use super::OWNER_ROLE;
-    use super::ISSUER_ROLE;
-    use super::THIRD_PARTY_ROLE;
+    use trustlines_erc::constants::OWNER_ROLE;
+    use trustlines_erc::constants::ISSUER_ROLE;
+    use trustlines_erc::constants::THIRD_PARTY_ROLE;
 
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -115,8 +73,5 @@ mod trustERC20 {
         self.accesscontrol._grant_role(OWNER_ROLE, owner);
         self.accesscontrol._grant_role(ISSUER_ROLE, issuer);
         self.accesscontrol._grant_role(THIRD_PARTY_ROLE, third_party);
-        
     }
-    
-
 }

@@ -1,4 +1,7 @@
-pub mod trustERC20;
+pub mod contract;
+pub mod trustlines;
+pub mod constants;
+pub mod traits;
 
 #[cfg(test)]
 pub mod tests {
