@@ -1,5 +1,4 @@
 pub mod contract;
-pub mod trustlines;
 pub mod constants;
 pub mod traits;
 
