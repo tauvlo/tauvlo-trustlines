@@ -12,7 +12,6 @@ use trustlines_erc::contract::ITrustlinesDispatcher;
 fn test_deploy() {
     let token_addr = deploy_token(0, OWNER(), OWNER(), ISSUER(), THIRD_PARTY());
     let token = ItrustERC20Dispatcher { contract_address: token_addr };
-    let tmp = ITrustlinesDispatcher { contract_address: token_addr };
 
     assert(token.total_supply() == 0, 'Supply wrong');
     assert(token.name() == "Token", 'Name wrong');
@@ -23,6 +22,4 @@ fn test_deploy() {
     assert(token.has_role(OWNER_ROLE, OWNER()), 'Wrong owner role');
     assert(token.has_role(ISSUER_ROLE, ISSUER()), 'Wrong issuer role');
     assert(token.has_role(THIRD_PARTY_ROLE, THIRD_PARTY()), 'Wrong 3rd party role');
-
-    assert(tmp.dummy_function() == 1, '');
 }

@@ -88,11 +88,10 @@ mod trustERC20 {
         self.accesscontrol._grant_role(ISSUER_ROLE, issuer);
         self.accesscontrol._grant_role(THIRD_PARTY_ROLE, third_party);
     }
-
-    #[abi(embed_v0)]
-    impl Trustlines of super::ITrustlines<ContractState> {
-        fn dummy_function(self: @ContractState) -> u256 {
-            self.trustlines.dummy_function()
-        }
-    }
+// #[abi(embed_v0)]
+// impl Trustlines of super::ITrustlines<ContractState> {
+//     fn dummy_function(self: @ContractState) -> u256 {
+//         self.trustlines.dummy_function()
+//     }
+// }
 }

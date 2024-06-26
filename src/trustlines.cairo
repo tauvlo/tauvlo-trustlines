@@ -9,26 +9,23 @@
 
 #[starknet::component]
 pub(crate) mod TrustlinesComponent {
-    use starknet::ContractAddress;
+    use starknet::{ContractAddress, get_caller_address};
 
     /// 'Trustline' struct, for storing information
     /// about proposed or existing trustline between two parties
     /// 
-    /// `party_1` and `party_2` are parties between which the trustline is established
     /// `amount_effective` is the current established trustline amount
     /// `amount_proposed` current proposed amount
     ///     - either proposed for establishing the trustline or for increasing it
-    #[derive(Copy, Drop, Serde)]
+    #[derive(Copy, Drop, Serde, starknet::Store)]
     struct Trustline {
-        party_1: ContractAddress,
-        party_2: ContractAddress,
         amount_effective: u256,
         amount_proposed: u256
     }
 
     #[storage]
     struct Storage {
-        trustlines: LegacyMap<(ContractAddress, ContractAddress), Trustline>
+        trustlines: LegacyMap<(ContractAddress, ContractAddress), Trustline>,
     }
 
     /// `TrustlineProposed` event emitted when either new trustline is proposed
@@ -70,8 +67,59 @@ pub(crate) mod TrustlinesComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
-        fn dummy_function(self: @ComponentState<TContractState>) -> u256 {
-            1
+        // fn establish_trustline(
+        //     self: @ComponentState<TContractState>,
+        //     other_party: ContractAddress,
+        //     amount: u256
+        // ) -> bool {
+        //     let caller = get_call
+        //     true
+        // }
+
+        fn _write_trustline(
+            ref self: ComponentState<TContractState>,
+            party_1: ContractAddress,
+            party_2: ContractAddress,
+            trustline: Trustline
+        ) {
+            let _p1: felt252 = party_1.try_into().unwrap();
+            let _p2: felt252 = party_2.try_into().unwrap();
+
+            let _p1: u256 = _p1.into();
+            let _p2: u256 = _p2.into();
+
+            assert(_p1 != _p2, 'Parties are the same');
+
+            let key = if (_p1 > _p2) {
+                (party_1, party_2)
+            } else {
+                (party_2, party_1)
+            };
+
+            self.trustlines.write(key, trustline)
+        }
+
+
+        fn _get_trustline(
+            self: @ComponentState<TContractState>,
+            party_1: ContractAddress,
+            party_2: ContractAddress,
+        ) -> Trustline {
+            let _p1: felt252 = party_1.try_into().unwrap();
+            let _p2: felt252 = party_2.try_into().unwrap();
+
+            let _p1: u256 = _p1.into();
+            let _p2: u256 = _p2.into();
+
+            assert(_p1 != _p2, 'Parties are the same');
+
+            let key = if (_p1 > _p2) {
+                (party_1, party_2)
+            } else {
+                (party_2, party_1)
+            };
+
+            self.trustlines.read(key)
         }
     }
 }
