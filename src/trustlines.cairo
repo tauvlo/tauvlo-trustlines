@@ -41,7 +41,7 @@ pub(crate) mod TrustlinesComponent {
             (self.amount_effective > 0)
                 && (self.amount_proposed > 0)
                 && !self.party_a.is_zero()
-                && !self.party_a.is_zero()
+                && !self.party_b.is_zero()
         }
 
         fn is_effective(self: Trustline) -> bool {
@@ -63,6 +63,14 @@ pub(crate) mod TrustlinesComponent {
         fn with_effective_amount(self: Trustline, effective_amount: u256) -> Trustline {
             // Return trustline with new effective amount
             Trustline { amount_effective: effective_amount, ..self }
+        }
+
+        fn with_updated_usage(self: Trustline, party_a_used: u256, party_b_used: u256) -> Trustline {
+            Trustline {
+                party_a_used: party_a_used,
+                party_b_used: party_b_used,
+                ..self
+            }
         }
     }
 
@@ -88,6 +96,7 @@ pub(crate) mod TrustlinesComponent {
     /// or an existing one is adjusted (increased or decreased)
     /// 
     /// `party_1` in this case is the party that accepts the new (or increased) trustline, or decreases size of trustline
+    /// `effective_amount` is the new size of the trustline
     /// `previous_amount` is the previous trustline amount (0 in case new trustline is being established)
     #[derive(starknet::Event, Drop)]
     struct TrustlineEstablished {
@@ -97,11 +106,22 @@ pub(crate) mod TrustlinesComponent {
         previous_amount: u256
     }
 
+    #[derive(starknet::Event, Drop)]
+    struct TrustlineTransfer {
+        from: ContractAddress,
+        to: ContractAddress,
+        amount: u256,
+        trustline_after: Trustline
+    }
+
+
+
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         TrustlineProposed: TrustlineProposed,
-        TrustlineEstablished: TrustlineEstablished
+        TrustlineEstablished: TrustlineEstablished,
+        TrustlineTransfer: TrustlineTransfer
     }
 
     pub mod Errors {
@@ -114,6 +134,7 @@ pub(crate) mod TrustlinesComponent {
         pub const TRUSTLINE_EFFECTIVE: felt252 = 'Trustline already effective';
         pub const NO_TRUSTLINE_FOUND: felt252 = 'Trustline does not exist';
         pub const INSUFFICIENT_PROPOSAL_AMOUNT: felt252 = 'Proposed must be > effective';
+        pub const INVALID_DECREASE_AMOUNT: felt252 = 'Decrease amount invalid';
     }
 
     #[generate_trait]
@@ -128,6 +149,9 @@ pub(crate) mod TrustlinesComponent {
 
             assert(proposer != other_party, Errors::OTHER_PARTY_IS_CALLER);
             assert(!other_party.is_zero(), Errors::OTHER_PARTY_ZERO);
+            // TODO: Here we're checking that it doesnt exist, however if there
+            //      already exists a proposal and the caller is the proposer
+            //      then we should probably let him alter the proposal
             assert(!trustline.exists(), Errors::NEW_PROPOSED_TRUSTLINE_EXISTS);
 
             // Assert that new proposed trustline amount is not zero
@@ -196,6 +220,11 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
+        // TODO: Maybe we can delete the functions for accepting the proposals
+        // and only have the proposal functions
+        // TODO: Add function for canceling the proposal
+        // TODO: Function for querying the current state of trustline
+        // (if both parties propose then new trustline is established with min of the amounts)
         fn propose_modify_trustline(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
         ) -> bool {
@@ -210,6 +239,8 @@ pub(crate) mod TrustlinesComponent {
 
             assert(proposer != other_party, Errors::OTHER_PARTY_IS_CALLER);
             assert(!other_party.is_zero(), Errors::OTHER_PARTY_ZERO);
+
+            // TODO: Doesnt check that there isn't an outstanding proposal already
             assert(trustline.exists(), Errors::NO_TRUSTLINE_FOUND);
 
             assert(amount > trustline.amount_effective, Errors::INSUFFICIENT_PROPOSAL_AMOUNT);
@@ -278,7 +309,8 @@ pub(crate) mod TrustlinesComponent {
             assert(caller != other_party, Errors::OTHER_PARTY_IS_CALLER);
             assert(!other_party.is_zero(), Errors::OTHER_PARTY_ZERO);
             assert(trustline.exists(), Errors::NEW_PROPOSED_TRUSTLINE_EXISTS);
-            assert(amount < trustline.amount_effective, 'TODO');
+            // TODO: What if the amount is lower than what is currently used?
+            assert(amount < trustline.amount_effective, Errors::INVALID_DECREASE_AMOUNT);
 
             let new_trustline = trustline.with_effective_amount(amount);
 
@@ -295,6 +327,98 @@ pub(crate) mod TrustlinesComponent {
                 );
 
             true
+        }
+
+        fn trustline_transfer(
+            ref self: ComponentState<TContractState>, 
+            from: ContractAddress,
+            to: ContractAddress,
+            amount: u256
+        ) -> bool {
+            
+            assert(from != to, 'From and to addresses same');
+            assert(!from.is_zero(), '`From` address zero');
+            assert(!to.is_zero(), '`To` address zero');
+            assert(amount>0, 'Amount is zero');
+
+            let trustline = self._read_trustline(from , to);
+            assert(trustline.exists(), Errors::NO_TRUSTLINE_FOUND);
+            assert(trustline.amount_effective > 0, 'Trustline not effective');
+
+            // Example: 
+            // Alice and Bob setup a trustline of 50k
+            // Case A - no transfers yet:
+            //      Alice wants to transfer 30k and since there has been
+            //      no traansfers yet, her limit is 50k and the transfer works, 
+            //      now the limits are: Bob - 80k, Alice - 20k
+            // Case B - transfered already: 
+            //      Now Alice wants to send 30k again, however since she already
+            //      used 30k of the trustline, the transfer will fail as she 
+            //      only has 20k limit left, the limits are still the same 
+            // Case C - bob transfers:
+            //      Bob now transfers 60k to alice. Since she sent him 30k already
+            //      it's not a problem (his limit was 80k because of that).
+            //      So after the transfer, Bob's limit is decreased by 60k and 
+            //      Alice limit is increase. State after transfer: Bob - 20k, Alice - 80k
+            // Case D- bob transfers again:
+            //      Now bob transfers 20k. State after transfer: Bob-0, Alice-100k
+            // Note: All this should happen in terms of `party_a_used` and
+            // `party_b_used` fields of trustline struct, ensuring that the used is 
+            // never above effective amount. For example, in state after case A, 
+            // Alice used 30k of the trustline, so the fields would be: 
+            // `party_a_used` = 30k, `party_b_used` = 0, and Bob implicitly can spend 80k (30k to decrease alice limit to 0, then 50k of his own)
+
+            let (from_used, to_used) = if from == trustline.party_a {
+                (trustline.party_a_used, trustline.party_b_used)
+            } else {
+                (trustline.party_b_used, trustline.party_a_used)
+            };
+
+            // TODO: What if after proposal from_used is higher thatn amount_effective? This could underflow
+            let available_from_limit = if from_used >= to_used {
+                trustline.amount_effective - from_used
+            } else {
+                trustline.amount_effective + to_used 
+            };
+
+            assert(amount <= available_from_limit, 'Amount over limit');
+
+            let decrease_used_to_by = min(to_used, amount);
+            let increase_used_from_by = amount - decrease_used_to_by;
+            
+            let new_used_from = from_used + increase_used_from_by;
+            let new_used_to = to_used - decrease_used_to_by;
+
+            // TODO: What if after proposal used is higher that amount_effective? This check could fail.
+            assert(new_used_from <= trustline.amount_effective, 'From used too much');
+            assert(new_used_to <= trustline.amount_effective, 'To used too much');
+
+            assert(new_used_from * new_used_to == 0, 'Usage product not zero');
+
+            let new_trustline = if (from == trustline.party_a) {
+                trustline.with_updated_usage(new_used_from, new_used_to)
+            } else {
+                trustline.with_updated_usage(new_used_to, new_used_from)
+            };
+            
+            self._write_trustline(new_trustline);
+
+            self.emit(TrustlineTransfer {
+                from: from,
+                to: to,
+                amount: amount,
+                trustline_after: new_trustline
+            });
+
+            true
+        }
+
+        fn get_trustline(
+            self: @ComponentState<TContractState>,
+            party_a: ContractAddress,
+            party_b: ContractAddress,
+        ) -> Trustline {
+            self._read_trustline(party_a, party_b)
         }
 
         fn _write_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
