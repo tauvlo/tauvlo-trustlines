@@ -35,6 +35,12 @@ pub(crate) mod TrustlinesMock {
         ) -> Trustline {
             self.trustlines.get_trustline(party_a, party_b)
         }
+
+        fn accept_new_trustline_proposal(
+            ref self: ContractState, other_party: ContractAddress, amount: u256
+        ) -> bool {
+            self.trustlines.accept_new_trustline_proposal(other_party, amount)
+        }
     }
 }
 

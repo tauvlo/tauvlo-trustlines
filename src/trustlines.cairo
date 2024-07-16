@@ -15,6 +15,9 @@ pub trait ITrustlines<TContractState> {
     fn get_trustline(
         self: @TContractState, party_a: ContractAddress, party_b: ContractAddress,
     ) -> TrustlinesComponent::Trustline;
+    fn accept_new_trustline_proposal(
+        ref self: TContractState, other_party: ContractAddress, amount: u256
+    ) -> bool;
 }
 
 #[starknet::component]
@@ -48,8 +51,7 @@ pub(crate) mod TrustlinesComponent {
     #[generate_trait]
     pub impl TrustlineImpl of TrustlineTrait {
         fn exists(self: Trustline) -> bool {
-                !self.party_a.is_zero()
-                && !self.party_b.is_zero()
+            !self.party_a.is_zero() && !self.party_b.is_zero()
         }
 
         fn is_effective(self: Trustline) -> bool {
