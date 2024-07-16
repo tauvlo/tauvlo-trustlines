@@ -34,8 +34,8 @@ pub(crate) mod TrustlinesComponent {
     ///     - either proposed for establishing the trustline or for increasing it
     /// `proposing_party` is the party that's currently proposing an amount
     ///     - other party then need to confirm 
-    #[derive(Copy, Drop, Serde, starknet::Store)]
-    pub(crate) struct Trustline {
+    #[derive(Copy, Drop, Serde, starknet::Store, Debug)]
+    pub struct Trustline {
         pub party_a: ContractAddress,
         pub party_b: ContractAddress,
         pub amount_effective: u256,
@@ -46,11 +46,9 @@ pub(crate) mod TrustlinesComponent {
     }
 
     #[generate_trait]
-    impl TrustlineImpl of TrustlineTrait {
+    pub impl TrustlineImpl of TrustlineTrait {
         fn exists(self: Trustline) -> bool {
-            (self.amount_effective > 0)
-                && (self.amount_proposed > 0)
-                && !self.party_a.is_zero()
+                !self.party_a.is_zero()
                 && !self.party_b.is_zero()
         }
 

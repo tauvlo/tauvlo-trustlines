@@ -2,6 +2,8 @@ use starknet::ContractAddress;
 use starknet::contract_address_const;
 
 use trustlines_erc::trustlines::TrustlinesComponent;
+use trustlines_erc::trustlines::TrustlinesComponent::Trustline;
+use trustlines_erc::trustlines::TrustlinesComponent::TrustlineTrait;
 use trustlines_erc::trustlines::ITrustlinesDispatcher;
 use trustlines_erc::trustlines::ITrustlinesDispatcherTrait;
 use trustlines_erc::tests::mocks::trustlines_mock::TrustlinesMock;
@@ -123,4 +125,83 @@ fn test_propose_new_trustline() {
         'Trustlines not the same'
     );
 }
+
+#[test]
+#[should_panic(expected: ('Proposed trustline exists', ))]
+fn test_propose_new_trustline_already_proposed_same_amount() {
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+    
+    // Try to proposed the same amount by the same user again
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_new_trustline(USER_2(), FIFTY_K);
+}
+
+#[test]
+#[should_panic(expected: ('Proposed trustline exists', ))]
+fn test_propose_new_trustline_already_proposed_different_amount() {
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+    
+    // Try to proposed the same amount by the same user again
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_new_trustline(USER_2(), TEN_K);
+}
+
+#[test]
+#[should_panic(expected: ('Proposed trustline exists', ))]
+fn test_propose_new_trustline_already_proposed_different_user() {
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+    
+    // Try to propose by different user
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.propose_new_trustline(USER_1(), TEN_K);
+}
+
+#[test]
+#[should_panic(expected: ('Parties are the same', ))]
+fn test_propose_other_user_is_caller() {
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_1(), FIFTY_K);
+}
+
+#[test]
+#[should_panic(expected: ( 'Proposed amount is zero', ))]
+fn test_propose_zero_amount() {
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2 but amount is zero
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), 0);
+}
+
+#[test]
+#[should_panic(expected: ( 'Other party address is zero', ))]
+fn test_propose_zero_other_party() {
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2 but amount is zero
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(contract_address_const::<0>(), FIFTY_K);
+}
+
 
