@@ -6,6 +6,18 @@
 /// This component does not implement any checks and/or admin-like system. It should be only
 /// used along some acces control functionality as it contains functions for permisionless 
 /// state changes.
+use starknet::ContractAddress;
+#[starknet::interface]
+pub trait ITrustlines<TContractState> {
+    fn propose_new_trustline(
+        ref self: TContractState, other_party: ContractAddress, amount: u256
+    ) -> bool;
+    fn get_trustline(
+        self: @TContractState, party_a: ContractAddress, party_b: ContractAddress,
+    ) -> TrustlinesComponent::Trustline;
+    
+    
+}
 
 #[starknet::component]
 pub(crate) mod TrustlinesComponent {
@@ -25,14 +37,14 @@ pub(crate) mod TrustlinesComponent {
     /// `proposing_party` is the party that's currently proposing an amount
     ///     - other party then need to confirm 
     #[derive(Copy, Drop, Serde, starknet::Store)]
-    struct Trustline {
-        party_a: ContractAddress,
-        party_b: ContractAddress,
-        amount_effective: u256,
-        amount_proposed: u256,
-        proposing_party: ContractAddress,
-        party_a_used: u256,
-        party_b_used: u256,
+    pub(crate) struct Trustline {
+        pub party_a: ContractAddress,
+        pub party_b: ContractAddress,
+        pub amount_effective: u256,
+        pub amount_proposed: u256,
+        pub proposing_party: ContractAddress,
+        pub party_a_used: u256,
+        pub party_b_used: u256,
     }
 
     #[generate_trait]
