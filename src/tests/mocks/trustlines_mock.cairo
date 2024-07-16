@@ -35,7 +35,6 @@ pub(crate) mod TrustlinesMock {
         ) -> Trustline {
             self.trustlines.get_trustline(party_a, party_b)
         }
-        
     }
 }
 

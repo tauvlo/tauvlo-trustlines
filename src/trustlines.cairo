@@ -15,8 +15,6 @@ pub trait ITrustlines<TContractState> {
     fn get_trustline(
         self: @TContractState, party_a: ContractAddress, party_b: ContractAddress,
     ) -> TrustlinesComponent::Trustline;
-    
-    
 }
 
 #[starknet::component]

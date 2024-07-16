@@ -43,7 +43,6 @@ fn test_propose_new_trustline() {
     prank(CheatTarget::One(address), USER_3(), CheatSpan::TargetCalls(1));
     let _ = trustline.propose_new_trustline(USER_1(), TEN_K);
 
-    
     // Test proposed Trustline between user 1 and 2
     let users_1_2_line = trustline.get_trustline(USER_1(), USER_2());
     assert(users_1_2_line.amount_effective == 0, 'No effective amount yet');
@@ -79,22 +78,49 @@ fn test_propose_new_trustline() {
     let users_1_2_line_reversed = trustline.get_trustline(USER_2(), USER_1());
     assert(users_1_2_line_reversed.party_a == users_1_2_line.party_a, 'Trustlines not the same');
     assert(users_1_2_line_reversed.party_b == users_1_2_line.party_b, 'Trustlines not the same');
-    assert(users_1_2_line_reversed.amount_effective == users_1_2_line.amount_effective, 'Trustlines not the same');
-    assert(users_1_2_line_reversed.amount_proposed == users_1_2_line.amount_proposed, 'Trustlines not the same');
-    assert(users_1_2_line_reversed.proposing_party == users_1_2_line.proposing_party, 'Trustlines not the same');
-    assert(users_1_2_line_reversed.party_a_used == users_1_2_line.party_a_used, 'Trustlines not the same');
-    assert(users_1_2_line_reversed.party_b_used == users_1_2_line.party_b_used, 'Trustlines not the same');
+    assert(
+        users_1_2_line_reversed.amount_effective == users_1_2_line.amount_effective,
+        'Trustlines not the same'
+    );
+    assert(
+        users_1_2_line_reversed.amount_proposed == users_1_2_line.amount_proposed,
+        'Trustlines not the same'
+    );
+    assert(
+        users_1_2_line_reversed.proposing_party == users_1_2_line.proposing_party,
+        'Trustlines not the same'
+    );
+    assert(
+        users_1_2_line_reversed.party_a_used == users_1_2_line.party_a_used,
+        'Trustlines not the same'
+    );
+    assert(
+        users_1_2_line_reversed.party_b_used == users_1_2_line.party_b_used,
+        'Trustlines not the same'
+    );
 
     let users_3_1_line_reversed = trustline.get_trustline(USER_1(), USER_3());
     assert(users_3_1_line_reversed.party_a == users_3_1_line.party_a, 'Trustlines not the same');
     assert(users_3_1_line_reversed.party_b == users_3_1_line.party_b, 'Trustlines not the same');
-    assert(users_3_1_line_reversed.amount_effective == users_3_1_line.amount_effective, 'Trustlines not the same');
-    assert(users_3_1_line_reversed.amount_proposed == users_3_1_line.amount_proposed, 'Trustlines not the same');
-    assert(users_3_1_line_reversed.proposing_party == users_3_1_line.proposing_party, 'Trustlines not the same');
-    assert(users_3_1_line_reversed.party_a_used == users_3_1_line.party_a_used, 'Trustlines not the same');
-    assert(users_3_1_line_reversed.party_b_used == users_3_1_line.party_b_used, 'Trustlines not the same');
-
+    assert(
+        users_3_1_line_reversed.amount_effective == users_3_1_line.amount_effective,
+        'Trustlines not the same'
+    );
+    assert(
+        users_3_1_line_reversed.amount_proposed == users_3_1_line.amount_proposed,
+        'Trustlines not the same'
+    );
+    assert(
+        users_3_1_line_reversed.proposing_party == users_3_1_line.proposing_party,
+        'Trustlines not the same'
+    );
+    assert(
+        users_3_1_line_reversed.party_a_used == users_3_1_line.party_a_used,
+        'Trustlines not the same'
+    );
+    assert(
+        users_3_1_line_reversed.party_b_used == users_3_1_line.party_b_used,
+        'Trustlines not the same'
+    );
 }
-
-
 
