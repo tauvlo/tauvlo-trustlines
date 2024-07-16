@@ -65,12 +65,10 @@ pub(crate) mod TrustlinesComponent {
             Trustline { amount_effective: effective_amount, ..self }
         }
 
-        fn with_updated_usage(self: Trustline, party_a_used: u256, party_b_used: u256) -> Trustline {
-            Trustline {
-                party_a_used: party_a_used,
-                party_b_used: party_b_used,
-                ..self
-            }
+        fn with_updated_usage(
+            self: Trustline, party_a_used: u256, party_b_used: u256
+        ) -> Trustline {
+            Trustline { party_a_used: party_a_used, party_b_used: party_b_used, ..self }
         }
     }
 
@@ -113,7 +111,6 @@ pub(crate) mod TrustlinesComponent {
         amount: u256,
         trustline_after: Trustline
     }
-
 
 
     #[event]
@@ -330,18 +327,17 @@ pub(crate) mod TrustlinesComponent {
         }
 
         fn trustline_transfer(
-            ref self: ComponentState<TContractState>, 
+            ref self: ComponentState<TContractState>,
             from: ContractAddress,
             to: ContractAddress,
             amount: u256
         ) -> bool {
-            
             assert(from != to, 'From and to addresses same');
             assert(!from.is_zero(), '`From` address zero');
             assert(!to.is_zero(), '`To` address zero');
-            assert(amount>0, 'Amount is zero');
+            assert(amount > 0, 'Amount is zero');
 
-            let trustline = self._read_trustline(from , to);
+            let trustline = self._read_trustline(from, to);
             assert(trustline.exists(), Errors::NO_TRUSTLINE_FOUND);
             assert(trustline.amount_effective > 0, 'Trustline not effective');
 
@@ -378,14 +374,14 @@ pub(crate) mod TrustlinesComponent {
             let available_from_limit = if from_used >= to_used {
                 trustline.amount_effective - from_used
             } else {
-                trustline.amount_effective + to_used 
+                trustline.amount_effective + to_used
             };
 
             assert(amount <= available_from_limit, 'Amount over limit');
 
             let decrease_used_to_by = min(to_used, amount);
             let increase_used_from_by = amount - decrease_used_to_by;
-            
+
             let new_used_from = from_used + increase_used_from_by;
             let new_used_to = to_used - decrease_used_to_by;
 
@@ -400,15 +396,15 @@ pub(crate) mod TrustlinesComponent {
             } else {
                 trustline.with_updated_usage(new_used_to, new_used_from)
             };
-            
+
             self._write_trustline(new_trustline);
 
-            self.emit(TrustlineTransfer {
-                from: from,
-                to: to,
-                amount: amount,
-                trustline_after: new_trustline
-            });
+            self
+                .emit(
+                    TrustlineTransfer {
+                        from: from, to: to, amount: amount, trustline_after: new_trustline
+                    }
+                );
 
             true
         }
