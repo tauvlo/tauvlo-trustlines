@@ -9,11 +9,12 @@ use trustlines_erc::trustlines::ITrustlinesDispatcher;
 use trustlines_erc::trustlines::ITrustlinesDispatcherTrait;
 use trustlines_erc::tests::mocks::trustlines_mock::TrustlinesMock;
 
-
 const TEN_K: u256 = 10000000000000000000000;
 const FIFTY_K: u256 = 50000000000000000000000;
 
-
+fn ZERO_ADDR() -> ContractAddress {
+    contract_address_const::<0>()
+}
 fn USER_1() -> ContractAddress {
     contract_address_const::<'USER_1'>()
 }
@@ -161,7 +162,7 @@ fn test_propose_zero_other_party() {
 
     // User 1 wants to setup trustline with user 2 but amount is zero
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
-    let _ = trustline.propose_new_trustline(contract_address_const::<0>(), FIFTY_K);
+    let _ = trustline.propose_new_trustline(ZERO_ADDR(), FIFTY_K);
 }
 
 
@@ -331,4 +332,550 @@ fn test_accept_new_trustline_proposal_non_existing() {
     prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
     let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
 }
+
+
+#[test]
+fn test_propose_modify_trustline() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+    // Propose modify trustline as user 1
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+
+    // Read the trustline again and check the proposal is there
+    let tline2 = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline2.amount_proposed == FIFTY_K * 2, 'Should be no proposed');
+    assert(tline2.proposing_party == USER_1(), 'Should be no proposed');
+}
+
+#[test]
+#[should_panic(expected: ('Trustline does not exist',))]
+fn test_propose_modify_trustline_non_existing() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // Propose modify trustline as user 1 with user 2 (no such trustline existing)
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K 
+    );
+
+}
+
+#[test]
+#[should_panic(expected: ('Proposed must be > effective',))]
+fn test_propose_modify_trustline_lower_amount() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+    // Propose modify trustline as user 1 with lower amount
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        TEN_K
+    );
+
+}
+
+#[test]
+#[should_panic(expected: ('Proposed must be > effective',))]
+fn test_propose_modify_trustline_same_amount() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+    // Propose modify trustline as user 1 with same amount as effective
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K
+    );
+
+}
+
+#[test]
+#[should_panic(expected: ('Parties are the same',))]
+fn test_propose_modify_trustline_caller_same_as_other_party() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Propose modify trustline as user 1 with other party being user 1
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_1(),
+        FIFTY_K
+    );
+
+}
+
+#[test]
+#[should_panic(expected: ('Other party address is zero',))]
+fn test_propose_modify_trustline_other_party_zero() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Propose modify trustline as user 1 with other party being 0 addr
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        ZERO_ADDR(),
+        FIFTY_K
+    );
+}
+
+#[test]
+#[should_panic(expected: ('Trustline already has proposal',))]
+fn test_propose_modify_trustline_already_proposed() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Propose modify trustline as user 1 
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+
+    // Propose modify trustline again
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+}
+
+
+#[test]
+#[should_panic(expected: ('Trustline already has proposal',))]
+fn test_propose_modify_trustline_already_proposed_by_different_user() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Propose modify trustline as user 1 
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+
+    // Propose modify trustline as user 2
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_1(),
+        FIFTY_K * 2
+    );
+}
+
+#[test]
+fn test_accept_modify_trustline() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+    // Propose modify trustline as user 1
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+
+    // Accept modify as user 2
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.accept_modify_trustline_proposal(
+        USER_1(),
+        FIFTY_K * 2
+    );
+
+    // Read the trustline again and check the effective is correct
+    let tline2 = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline2.amount_proposed == 0, 'Should be no proposed');
+    assert(tline2.proposing_party == ZERO_ADDR(), 'Should be no proposed');
+    assert(tline2.amount_effective == FIFTY_K * 2, 'Effective wrong');
+}
+
+
+#[test]
+#[should_panic(expected: ('Proposed < effective',))]
+fn test_accept_modify_trustline_amount_below_effective() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+    // Propose modify trustline as user 1
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+
+    // Accept modify as user 2 with amount below current effective
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.accept_modify_trustline_proposal(
+        USER_1(),
+        TEN_K 
+    );
+}
+
+#[test]
+fn test_accept_modify_trustline_amount_below_proposed() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+    // Propose modify trustline as user 1
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+
+    let amount = FIFTY_K * 2 - TEN_K;
+
+    // Accept modify as user 2 with amount below current proposed amount
+    // (but above current effective)
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.accept_modify_trustline_proposal(
+        USER_1(),
+        amount 
+    );
+
+    // Read the trustline again and check the effective is correct
+    let tline2 = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline2.amount_proposed == 0, 'Should be no proposed');
+    assert(tline2.proposing_party == ZERO_ADDR(), 'Should be no proposed');
+    assert(tline2.amount_effective == amount, 'Effective wrong');
+
+}
+
+#[test]
+fn test_accept_modify_trustline_amount_above_proposed() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+    // Propose modify trustline as user 1
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+
+    // Accept modify as user 2 with amount below current effective
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.accept_modify_trustline_proposal(
+        USER_1(),
+        FIFTY_K * 2 + TEN_K
+    );
+
+    // Read the trustline again and check the effective is correct
+    let tline2 = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline2.amount_proposed == 0, 'Should be no proposed');
+    assert(tline2.proposing_party == ZERO_ADDR(), 'Should be no proposed');
+    assert(tline2.amount_effective == FIFTY_K * 2, 'Effective wrong');
+
+}
+
+#[test]
+#[should_panic(expected: ('Proposed amount is zero',))]
+fn test_accept_modify_trustline_amount_zero() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+    // Propose modify trustline as user 1
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+
+    // Accept modify as user 2 with amount below current effective
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.accept_modify_trustline_proposal(
+        USER_1(),
+        0
+    );
+
+}
+
+#[test]
+#[should_panic(expected: ('No trustline proposed found',))]
+fn test_accept_modify_trustline_not_existing() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // Accept modify as user 2 but there is no trustline
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.accept_modify_trustline_proposal(
+        USER_1(),
+        1
+    );
+
+}
+
+#[test]
+#[should_panic(expected: ('No proposed amount',))]
+fn test_accept_modify_trustline_no_proposal() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+
+    // Try Accept modify as user 2 
+    // But there is no proposal
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.accept_modify_trustline_proposal(
+        USER_1(),
+        FIFTY_K * 2
+    );
+}
+
+
+#[test]
+#[should_panic(expected: ('Trustline not effective',))]
+fn test_accept_modify_trustline_not_effective() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+
+    // Try Accept modify as user 2 
+    // But the trustline is not effective (newly proposed only)
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    trustline.accept_modify_trustline_proposal(
+        USER_1(),
+        FIFTY_K * 2
+    );
+}
+
+
+
+#[test]
+fn test_cancel_new_trustline_proposal() {
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // Test proposed Trustline between user 1 and 2
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_effective == 0, 'No effective amount yet');
+    assert(tline.amount_proposed == FIFTY_K, 'Wrong proposed amount');
+    assert(tline.proposing_party == USER_1(), 'Wrong proposer');
+
+    // Cancel the proposal
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.cancel_trustline_proposal(USER_2());
+
+    // Test proposed Trustline between user 1 and 2
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_effective == 0, 'No effective amount yet');
+    assert(tline.amount_proposed == 0, 'Wrong proposed amount');
+    assert(tline.proposing_party == ZERO_ADDR(), 'Wrong proposer');
+}
+
+#[test]
+fn test_cancel_modify_trustline_proposal() {
+
+    let address = setup();
+    let trustline = ITrustlinesDispatcher { contract_address: address };
+
+    // User 1 wants to setup trustline with user 2
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    let _ = trustline.propose_new_trustline(USER_2(), FIFTY_K);
+
+    // User 2 accepts the trustline with same amount
+    prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
+    let _ = trustline.accept_new_trustline_proposal(USER_1(), FIFTY_K);
+
+    // Make sure trustline has no proposal
+    let tline = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline.amount_proposed == 0, 'Should be no proposed');
+    assert(tline.proposing_party.is_zero(), 'Should be no proposed');
+
+    // Propose modify trustline as user 1
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.propose_modify_trustline(
+        USER_2(),
+        FIFTY_K * 2
+    );
+
+    // Cancel the proposal
+    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
+    trustline.cancel_trustline_proposal(USER_2());
+
+    let tline2 = trustline.get_trustline(USER_1(), USER_2());
+    assert(tline2.amount_proposed == 0, 'Should be no proposed');
+    assert(tline2.proposing_party.is_zero(), 'Should be no proposed');
+    assert(tline2.amount_effective == FIFTY_K, 'Wrong effective');
+    
+}
+
 

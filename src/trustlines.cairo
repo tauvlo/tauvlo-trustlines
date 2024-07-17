@@ -21,6 +21,14 @@ pub trait ITrustlines<TContractState> {
     fn propose_modify_trustline(
         ref self: TContractState, other_party: ContractAddress, amount: u256
     ) -> bool;
+    fn accept_modify_trustline_proposal(
+        ref self: TContractState, other_party: ContractAddress, amount: u256
+    ) -> bool;
+    fn cancel_trustline_proposal(
+        ref self: TContractState, 
+        other_party: ContractAddress
+    ) -> bool;
+    
 }
 
 #[starknet::component]
@@ -150,6 +158,7 @@ pub(crate) mod TrustlinesComponent {
         pub const NO_PROPOSED_TRUSTLINE: felt252 = 'No trustline proposed found';
         pub const CALLER_IS_PROPOSER: felt252 = 'Caller is proposer';
         pub const TRUSTLINE_EFFECTIVE: felt252 = 'Trustline already effective';
+        pub const TRUSTLINE_NOT_EFFECTIVE: felt252 = 'Trustline not effective';
         pub const NO_TRUSTLINE_FOUND: felt252 = 'Trustline does not exist';
         pub const INSUFFICIENT_PROPOSAL_AMOUNT: felt252 = 'Proposed must be > effective';
         pub const INVALID_DECREASE_AMOUNT: felt252 = 'Decrease amount invalid';
@@ -294,9 +303,11 @@ pub(crate) mod TrustlinesComponent {
 
             assert(caller != other_party, Errors::OTHER_PARTY_IS_CALLER);
             assert(amount > 0, Errors::PROPOSED_AMOUNT_ZERO);
+            assert(amount > trustline.amount_effective, 'Proposed < effective');
             assert(trustline.exists(), Errors::NO_PROPOSED_TRUSTLINE);
+            assert(trustline.is_proposed(), 'No proposed amount');
             assert(caller != trustline.proposing_party, Errors::CALLER_IS_PROPOSER);
-            assert(trustline.is_effective(), Errors::TRUSTLINE_EFFECTIVE);
+            assert(trustline.is_effective(), Errors::TRUSTLINE_NOT_EFFECTIVE);
 
             let amount_to_be_effective = min(amount, trustline.amount_proposed);
 
