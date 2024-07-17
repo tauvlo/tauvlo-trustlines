@@ -18,6 +18,9 @@ pub trait ITrustlines<TContractState> {
     fn accept_new_trustline_proposal(
         ref self: TContractState, other_party: ContractAddress, amount: u256
     ) -> bool;
+    fn propose_modify_trustline(
+        ref self: TContractState, other_party: ContractAddress, amount: u256
+    ) -> bool;
 }
 
 #[starknet::component]
@@ -56,6 +59,14 @@ pub(crate) mod TrustlinesComponent {
 
         fn is_effective(self: Trustline) -> bool {
             self.amount_effective > 0
+        }
+
+        fn is_proposed(self: Trustline) -> bool {
+            self.amount_proposed > 0
+        }
+
+        fn is_used(self: Trustline) -> bool {
+            self.party_a_used != 0 || self.party_b_used != 0
         }
 
         fn with_cleared_proposal(self: Trustline) -> Trustline {
@@ -249,6 +260,7 @@ pub(crate) mod TrustlinesComponent {
 
             // TODO: Doesnt check that there isn't an outstanding proposal already
             assert(trustline.exists(), Errors::NO_TRUSTLINE_FOUND);
+            assert(!trustline.is_proposed(), 'Trustline already has proposal');
 
             assert(amount > trustline.amount_effective, Errors::INSUFFICIENT_PROPOSAL_AMOUNT);
 
@@ -306,6 +318,45 @@ pub(crate) mod TrustlinesComponent {
 
             true
         }
+
+        fn cancel_trustline_proposal(
+            ref self: ComponentState<TContractState>, 
+            other_party: ContractAddress
+        ) -> bool {
+            
+            let caller = get_caller_address();
+            let trustline = self._read_trustline(caller, other_party);
+
+            assert(caller != other_party, Errors::OTHER_PARTY_IS_CALLER);
+            assert(!other_party.is_zero(), Errors::OTHER_PARTY_ZERO);
+            assert(trustline.exists(), Errors::NEW_PROPOSED_TRUSTLINE_EXISTS);
+            assert(trustline.is_proposed(), 'Trustline has no proposal');
+
+            assert(trustline.proposing_party == caller, 'Can only cancel own proposal');
+
+            let new_trustline = trustline.with_cleared_proposal();
+
+            // TODO: If the proposal was for a new trustline,
+            // then user would have to propose modify and not new one,
+            // so if the trustline has no effective and no usage,
+            // should we just delete it?
+            self._write_trustline(new_trustline);
+
+            // TODO: Should we emit something here?
+
+            true
+        }
+
+        // fn delete_trustline(
+        //     ref self: ComponentState<TContractState>,
+        //     party_a: ContractAddress, 
+        //     party_b: ContractAddress
+        // ) -> bool { }
+
+        // fn modify_trustline(
+        //     ref self: ComponentState<TContractState>,
+        //     trustline
+        // )
 
         fn decrease_trustline(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
@@ -427,6 +478,7 @@ pub(crate) mod TrustlinesComponent {
             self._read_trustline(party_a, party_b)
         }
 
+        // TODO: factor out the address sorting here and in read
         fn _write_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
             let _p1: felt252 = trustline.party_a.try_into().unwrap();
             let _p2: felt252 = trustline.party_b.try_into().unwrap();
