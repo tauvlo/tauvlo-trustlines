@@ -24,11 +24,7 @@ pub trait ITrustlines<TContractState> {
     fn accept_modify_trustline_proposal(
         ref self: TContractState, other_party: ContractAddress, amount: u256
     ) -> bool;
-    fn cancel_trustline_proposal(
-        ref self: TContractState, 
-        other_party: ContractAddress
-    ) -> bool;
-    
+    fn cancel_trustline_proposal(ref self: TContractState, other_party: ContractAddress) -> bool;
 }
 
 #[starknet::component]
@@ -331,10 +327,8 @@ pub(crate) mod TrustlinesComponent {
         }
 
         fn cancel_trustline_proposal(
-            ref self: ComponentState<TContractState>, 
-            other_party: ContractAddress
+            ref self: ComponentState<TContractState>, other_party: ContractAddress
         ) -> bool {
-            
             let caller = get_caller_address();
             let trustline = self._read_trustline(caller, other_party);
 
