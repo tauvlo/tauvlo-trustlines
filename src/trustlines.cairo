@@ -25,6 +25,15 @@ pub trait ITrustlines<TContractState> {
         ref self: TContractState, other_party: ContractAddress, amount: u256
     ) -> bool;
     fn cancel_trustline_proposal(ref self: TContractState, other_party: ContractAddress) -> bool;
+    fn decrease_trustline(
+        ref self: TContractState, other_party: ContractAddress, amount: u256
+    ) -> bool;
+    fn trustline_transfer(
+        ref self: TContractState,
+        from: ContractAddress,
+        to: ContractAddress,
+        amount: u256
+    ) -> bool;
 }
 
 #[starknet::component]
@@ -245,8 +254,6 @@ pub(crate) mod TrustlinesComponent {
 
         // TODO: Maybe we can delete the functions for accepting the proposals
         // and only have the proposal functions
-        // TODO: Add function for canceling the proposal
-        // TODO: Function for querying the current state of trustline
         // (if both parties propose then new trustline is established with min of the amounts)
         fn propose_modify_trustline(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
@@ -263,7 +270,6 @@ pub(crate) mod TrustlinesComponent {
             assert(proposer != other_party, Errors::OTHER_PARTY_IS_CALLER);
             assert(!other_party.is_zero(), Errors::OTHER_PARTY_ZERO);
 
-            // TODO: Doesnt check that there isn't an outstanding proposal already
             assert(trustline.exists(), Errors::NO_TRUSTLINE_FOUND);
             assert(!trustline.is_proposed(), 'Trustline already has proposal');
 
@@ -347,17 +353,27 @@ pub(crate) mod TrustlinesComponent {
             // should we just delete it?
             self._write_trustline(new_trustline);
 
-            // TODO: Should we emit something here?
+            self
+                .emit(
+                    TrustlineProposed {
+                        party_a: caller,
+                        party_b: other_party,
+                        proposed_amount: 0,
+                        current_effective_amount: trustline.amount_effective
+                    }
+                );
 
             true
         }
 
+        // TODO: should we add this?
         // fn delete_trustline(
         //     ref self: ComponentState<TContractState>,
         //     party_a: ContractAddress, 
         //     party_b: ContractAddress
         // ) -> bool { }
 
+        // TODO: should we add this?
         // fn modify_trustline(
         //     ref self: ComponentState<TContractState>,
         //     trustline
@@ -369,9 +385,10 @@ pub(crate) mod TrustlinesComponent {
             let caller = get_caller_address();
             let trustline = self._read_trustline(caller, other_party);
 
+            assert(trustline.is_effective(), Errors::TRUSTLINE_NOT_EFFECTIVE);
             assert(caller != other_party, Errors::OTHER_PARTY_IS_CALLER);
             assert(!other_party.is_zero(), Errors::OTHER_PARTY_ZERO);
-            assert(trustline.exists(), Errors::NEW_PROPOSED_TRUSTLINE_EXISTS);
+            assert(trustline.exists(), Errors::NO_TRUSTLINE_FOUND);
             // TODO: What if the amount is lower than what is currently used?
             assert(amount < trustline.amount_effective, Errors::INVALID_DECREASE_AMOUNT);
 
@@ -421,7 +438,7 @@ pub(crate) mod TrustlinesComponent {
             //      Bob now transfers 60k to alice. Since she sent him 30k already
             //      it's not a problem (his limit was 80k because of that).
             //      So after the transfer, Bob's limit is decreased by 60k and 
-            //      Alice limit is increase. State after transfer: Bob - 20k, Alice - 80k
+            //      Alice limit is increased. State after transfer: Bob - 20k, Alice - 80k
             // Case D- bob transfers again:
             //      Now bob transfers 20k. State after transfer: Bob-0, Alice-100k
             // Note: All this should happen in terms of `party_a_used` and
