@@ -29,10 +29,7 @@ pub trait ITrustlines<TContractState> {
         ref self: TContractState, other_party: ContractAddress, amount: u256
     ) -> bool;
     fn trustline_transfer(
-        ref self: TContractState,
-        from: ContractAddress,
-        to: ContractAddress,
-        amount: u256
+        ref self: TContractState, from: ContractAddress, to: ContractAddress, amount: u256
     ) -> bool;
 }
 

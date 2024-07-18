@@ -62,22 +62,12 @@ pub(crate) mod TrustlinesMock {
         fn decrease_trustline(
             ref self: ContractState, other_party: ContractAddress, amount: u256
         ) -> bool {
-            self.trustlines.decrease_trustline(
-                other_party,
-                amount
-            )
+            self.trustlines.decrease_trustline(other_party, amount)
         }
         fn trustline_transfer(
-            ref self: ContractState,
-            from: ContractAddress,
-            to: ContractAddress,
-            amount: u256
+            ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256
         ) -> bool {
-            self.trustlines.trustline_transfer(
-                from,
-                to, 
-                amount
-            )
+            self.trustlines.trustline_transfer(from, to, amount)
         }
     }
 }

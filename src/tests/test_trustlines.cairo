@@ -799,7 +799,6 @@ fn test_propose_new_trustline_cancel_propose_new_again() {
 
 #[test]
 fn test_propose_new_trustline_cancel_propose_modify() {
-
     let address = setup();
     let trustline = ITrustlinesDispatcher { contract_address: address };
 
@@ -811,7 +810,7 @@ fn test_propose_new_trustline_cancel_propose_modify() {
     // (trustline already exists)
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
     trustline.cancel_trustline_proposal(USER_2());
-    
+
     // User 1 proposes modification 
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
     trustline.propose_modify_trustline(USER_2(), FIFTY_K);
@@ -820,13 +819,11 @@ fn test_propose_new_trustline_cancel_propose_modify() {
     assert(tline.amount_proposed == FIFTY_K, 'Should be no proposed');
     assert(!tline.proposing_party.is_zero(), 'Should be no proposed');
     assert(tline.amount_effective == 0, 'Wrong effective');
-
 }
 
 
 #[test]
 fn test_decrease_trustline() {
-
     let address = setup();
     let trustline = ITrustlinesDispatcher { contract_address: address };
 
@@ -847,13 +844,11 @@ fn test_decrease_trustline() {
 
     let tline2 = trustline.get_trustline(USER_1(), USER_2());
     assert(tline2.amount_effective == TEN_K, 'Wrong effective amount');
-
 }
 
 #[test]
 #[should_panic(expected: ('Trustline not effective',))]
 fn test_decrease_trustline_not_effective() {
-
     let address = setup();
     let trustline = ITrustlinesDispatcher { contract_address: address };
 
@@ -864,12 +859,10 @@ fn test_decrease_trustline_not_effective() {
     // User 2 decides to decrease the trustline
     prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
     trustline.decrease_trustline(USER_1(), TEN_K);
-
 }
 
 #[test]
 fn test_decrease_trustline_with_modify_proposal() {
-
     let address = setup();
     let trustline = ITrustlinesDispatcher { contract_address: address };
 
@@ -887,7 +880,7 @@ fn test_decrease_trustline_with_modify_proposal() {
     // Propose modify trustline as user 1
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
     trustline.propose_modify_trustline(USER_2(), FIFTY_K * 2);
-    
+
     // User 2 decides to decrease the trustline
     prank(CheatTarget::One(address), USER_2(), CheatSpan::TargetCalls(1));
     trustline.decrease_trustline(USER_1(), TEN_K);
@@ -911,11 +904,7 @@ fn test_transfer() {
 
     // User 1 transfers 10k to user 2
     // No prank needed
-    trustline.trustline_transfer(
-        USER_1(), 
-        USER_2(),
-        TEN_K
-    );
+    trustline.trustline_transfer(USER_1(), USER_2(), TEN_K);
 
     // USER_1 felt252 is party_b here
     let tline = trustline.get_trustline(USER_1(), USER_2());
@@ -923,41 +912,25 @@ fn test_transfer() {
     assert(tline.party_a_used == TEN_K, 'Wrong used a');
 
     // USER_2 transfers back
-    trustline.trustline_transfer(
-        USER_2(),
-        USER_1(), 
-        TEN_K
-    );
+    trustline.trustline_transfer(USER_2(), USER_1(), TEN_K);
     let tline2 = trustline.get_trustline(USER_1(), USER_2());
     assert(tline2.party_b_used == 0, 'Wrong used b');
     assert(tline2.party_a_used == 0, 'Wrong used a');
 
     // USER_1 transfers 50k (max limit)
-    trustline.trustline_transfer(
-        USER_1(), 
-        USER_2(),
-        FIFTY_K
-    );
+    trustline.trustline_transfer(USER_1(), USER_2(), FIFTY_K);
     let tline3 = trustline.get_trustline(USER_1(), USER_2());
     assert(tline3.party_b_used == 0, 'Wrong used b');
     assert(tline3.party_a_used == FIFTY_K, 'Wrong used a');
 
     // USER_2 transfers 100k (he can because user1 already sent him 50k)
-    trustline.trustline_transfer(
-        USER_2(),
-        USER_1(), 
-        FIFTY_K * 2
-    );
+    trustline.trustline_transfer(USER_2(), USER_1(), FIFTY_K * 2);
     let tline4 = trustline.get_trustline(USER_1(), USER_2());
     assert(tline4.party_b_used == FIFTY_K, 'Wrong used b');
     assert(tline4.party_a_used == 0, 'Wrong used a');
 
     // USER_1 transfers 50k 
-    trustline.trustline_transfer(
-        USER_1(), 
-        USER_2(),
-        FIFTY_K 
-    );
+    trustline.trustline_transfer(USER_1(), USER_2(), FIFTY_K);
     let tline5 = trustline.get_trustline(USER_1(), USER_2());
     assert(tline5.party_b_used == 0, 'Wrong used b');
     assert(tline5.party_a_used == 0, 'Wrong used a');
@@ -965,10 +938,6 @@ fn test_transfer() {
     assert(tline5.amount_proposed == 0, 'wrong proposed');
     assert(tline5.proposing_party == ZERO_ADDR(), 'Wrong proposing party');
 }
-
-
-
-
 // TODO: Transfer > effective
 // TODO: no effective
 // TODO: user at limit
@@ -978,6 +947,6 @@ fn test_transfer() {
 // TODO: after proposal, used is > effective
 // 
 
-
-
 // TODO: test functions when there is sth transfered already
+
+
