@@ -9,21 +9,13 @@ use trustlines_erc::trustlines::ITrustlinesDispatcher;
 use trustlines_erc::trustlines::ITrustlinesDispatcherTrait;
 use trustlines_erc::tests::mocks::trustlines_mock::TrustlinesMock;
 
-const TEN_K: u256 = 10000000000000000000000;
-const FIFTY_K: u256 = 50000000000000000000000;
+use trustlines_erc::tests::utils::ZERO_ADDR;
+use trustlines_erc::tests::utils::USER_1;
+use trustlines_erc::tests::utils::USER_2;
+use trustlines_erc::tests::utils::USER_3;
+use trustlines_erc::tests::utils::TEN_K;
+use trustlines_erc::tests::utils::FIFTY_K;
 
-fn ZERO_ADDR() -> ContractAddress {
-    contract_address_const::<0>()
-}
-fn USER_1() -> ContractAddress {
-    contract_address_const::<'USER_1'>()
-}
-fn USER_2() -> ContractAddress {
-    contract_address_const::<'USER_2'>()
-}
-fn USER_3() -> ContractAddress {
-    contract_address_const::<'USER_3'>()
-}
 
 use snforge_std::{declare, ContractClassTrait, prank, CheatTarget, CheatSpan,};
 

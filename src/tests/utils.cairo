@@ -17,6 +17,22 @@ pub(crate) fn THIRD_PARTY() -> ContractAddress {
     contract_address_const::<'THIRD_PARTY'>()
 }
 
+pub(crate) fn ZERO_ADDR() -> ContractAddress {
+    contract_address_const::<0>()
+}
+pub(crate) fn USER_1() -> ContractAddress {
+    contract_address_const::<'USER_1'>()
+}
+pub(crate) fn USER_2() -> ContractAddress {
+    contract_address_const::<'USER_2'>()
+}
+pub(crate) fn USER_3() -> ContractAddress {
+    contract_address_const::<'USER_3'>()
+}
+
+pub(crate) const TEN_K: u256 = 10000000000000000000000;
+pub(crate) const FIFTY_K: u256 = 50000000000000000000000;
+
 pub(crate) fn deploy_token(
     initial_supply: u256,
     recipient: ContractAddress,
