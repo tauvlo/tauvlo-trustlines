@@ -2,6 +2,7 @@ pub mod contract;
 pub mod constants;
 pub mod traits;
 pub mod trustlines;
+pub mod holding_limits;
 
 pub mod tests {
     #[cfg(test)]
