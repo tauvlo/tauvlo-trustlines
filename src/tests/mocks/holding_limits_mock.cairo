@@ -1,0 +1,37 @@
+#[starknet::contract]
+pub(crate) mod HoldingLimitsMock {
+    use trustlines_erc::holding_limits::HoldingLimitsComponent;
+    use trustlines_erc::holding_limits::IHoldingLimits;
+    use starknet::ContractAddress;
+
+    component!(path: HoldingLimitsComponent, storage: holding_limits, event: HoldingLimitsEvent);
+
+    impl InternalImpl = HoldingLimitsComponent::InternalImpl<ContractState>;
+
+    #[storage]
+    struct Storage {
+        #[substorage(v0)]
+        holding_limits: HoldingLimitsComponent::Storage
+    }
+
+
+    #[event]
+    #[derive(Drop, starknet::Event)]
+    enum Event {
+        #[flat]
+        HoldingLimitsEvent: HoldingLimitsComponent::Event
+    }
+
+    #[abi(embed_v0)]
+    impl HoldingLimits of IHoldingLimits<ContractState> {
+        fn set_holding_limit(ref self: ContractState, address: ContractAddress, amount: u256) {
+            self.holding_limits.set_holding_limit(address, amount)
+        }
+        fn validate_holdings(self: @ContractState, address: ContractAddress, holdings: u256) {
+            self.holding_limits.validate_holdings(address, holdings)
+        }
+        fn get_holding_limit(self: @ContractState, address: ContractAddress) -> u256 {
+            self.holding_limits.get_holding_limit(address)
+        }
+    }
+}
