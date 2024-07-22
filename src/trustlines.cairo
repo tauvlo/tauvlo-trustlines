@@ -12,9 +12,6 @@ pub trait ITrustlines<TContractState> {
     fn propose_new_trustline(
         ref self: TContractState, other_party: ContractAddress, amount: u256
     ) -> bool;
-    fn get_trustline(
-        self: @TContractState, party_a: ContractAddress, party_b: ContractAddress,
-    ) -> TrustlinesComponent::Trustline;
     fn accept_new_trustline_proposal(
         ref self: TContractState, other_party: ContractAddress, amount: u256
     ) -> bool;
@@ -25,6 +22,9 @@ pub trait ITrustlines<TContractState> {
         ref self: TContractState, other_party: ContractAddress, amount: u256
     ) -> bool;
     fn cancel_trustline_proposal(ref self: TContractState, other_party: ContractAddress) -> bool;
+    fn get_trustline(
+        self: @TContractState, party_a: ContractAddress, party_b: ContractAddress,
+    ) -> TrustlinesComponent::Trustline;
     fn decrease_trustline(
         ref self: TContractState, other_party: ContractAddress, amount: u256
     ) -> bool;
@@ -249,9 +249,6 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
-        // TODO: Maybe we can delete the functions for accepting the proposals
-        // and only have the proposal functions
-        // (if both parties propose then new trustline is established with min of the amounts)
         fn propose_modify_trustline(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
         ) -> bool {
@@ -363,18 +360,39 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
-        // TODO: should we add this?
-        // fn delete_trustline(
-        //     ref self: ComponentState<TContractState>,
-        //     party_a: ContractAddress, 
-        //     party_b: ContractAddress
-        // ) -> bool { }
+        // TODO: Tests for this function
+        fn delete_trustline(
+            ref self: ComponentState<TContractState>,
+            party_a: ContractAddress,
+            party_b: ContractAddress
+        ) {
+            assert(!party_a.is_zero(), 'Party a is zero');
+            assert(!party_b.is_zero(), 'Party a is zero');
 
-        // TODO: should we add this?
-        // fn modify_trustline(
-        //     ref self: ComponentState<TContractState>,
-        //     trustline
-        // )
+            let key = self._get_trustlines_storage_keys(party_a, party_b);
+
+            let empty_trustline = Trustline {
+                party_a: contract_address_const::<0>(),
+                party_b: contract_address_const::<0>(),
+                amount_effective: 0,
+                amount_proposed: 0,
+                proposing_party: contract_address_const::<0>(),
+                party_a_used: 0,
+                party_b_used: 0,
+            };
+
+            self.trustlines.write(key, empty_trustline);
+        }
+
+        // TODO: should this emit an event?
+        // TODO: Tests for this function
+        fn modify_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
+            // Function to be used by admins etc.
+            assert(!trustline.party_a.is_zero(), 'Party a is zero');
+            assert(!trustline.party_b.is_zero(), 'Party b is zero');
+
+            self._write_trustline(trustline);
+        }
 
         fn decrease_trustline(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
@@ -425,7 +443,7 @@ pub(crate) mod TrustlinesComponent {
             // Alice and Bob setup a trustline of 50k
             // Case A - no transfers yet:
             //      Alice wants to transfer 30k and since there has been
-            //      no traansfers yet, her limit is 50k and the transfer works, 
+            //      no transfers yet, her limit is 50k and the transfer works,
             //      now the limits are: Bob - 80k, Alice - 20k
             // Case B - transfered already: 
             //      Now Alice wants to send 30k again, however since she already
@@ -497,45 +515,39 @@ pub(crate) mod TrustlinesComponent {
             self._read_trustline(party_a, party_b)
         }
 
+        fn _get_trustlines_storage_keys(
+            self: @ComponentState<TContractState>,
+            address1: ContractAddress,
+            address2: ContractAddress,
+        ) -> (ContractAddress, ContractAddress) {
+            let _a1: felt252 = address1.try_into().unwrap();
+            let _a2: felt252 = address2.try_into().unwrap();
+
+            let _a1: u256 = _a1.into();
+            let _a2: u256 = _a2.into();
+
+            assert(_a1 != _a2, 'Parties are the same');
+
+            if (_a1 > _a2) {
+                (address1, address2)
+            } else {
+                (address2, address1)
+            }
+        }
+
         // TODO: factor out the address sorting here and in read
         fn _write_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
-            let _p1: felt252 = trustline.party_a.try_into().unwrap();
-            let _p2: felt252 = trustline.party_b.try_into().unwrap();
-
-            let _p1: u256 = _p1.into();
-            let _p2: u256 = _p2.into();
-
-            assert(_p1 != _p2, 'Parties are the same');
-
-            let key = if (_p1 > _p2) {
-                (trustline.party_a, trustline.party_b)
-            } else {
-                (trustline.party_b, trustline.party_a)
-            };
-
+            let key = self._get_trustlines_storage_keys(trustline.party_a, trustline.party_b);
             self.trustlines.write(key, trustline)
         }
 
 
         fn _read_trustline(
             self: @ComponentState<TContractState>,
-            party_1: ContractAddress,
-            party_2: ContractAddress,
+            party_a: ContractAddress,
+            party_b: ContractAddress,
         ) -> Trustline {
-            let _p1: felt252 = party_1.try_into().unwrap();
-            let _p2: felt252 = party_2.try_into().unwrap();
-
-            let _p1: u256 = _p1.into();
-            let _p2: u256 = _p2.into();
-
-            assert(_p1 != _p2, 'Parties are the same');
-
-            let key = if (_p1 > _p2) {
-                (party_1, party_2)
-            } else {
-                (party_2, party_1)
-            };
-
+            let key = self._get_trustlines_storage_keys(party_a, party_b);
             self.trustlines.read(key)
         }
     }
