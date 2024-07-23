@@ -19,10 +19,9 @@ pub(crate) mod HoldingLimitsComponent {
     #[derive(Copy, Drop, Serde, starknet::Store, Debug)]
     pub struct HoldingLimit {
         // Set by authority
-        pub hard_limit: u256, 
-
+        pub hard_limit: u256,
         // Set by user, can never be > hard_limit
-        pub soft_limit: u256 
+        pub soft_limit: u256
     }
 
     #[storage]

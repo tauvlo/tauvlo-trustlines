@@ -86,18 +86,16 @@ fn test_set_soft_limit_zero_address() {
 fn test_validate_holdings() {
     let address = setup();
     let limits = IHoldingLimitsDispatcher { contract_address: address };
-    
+
     // Set holding limit
     limits.set_hard_limit(USER_1(), TEN_K);
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
     limits.set_soft_limit(USER_1(), TEN_K);
 
-    
     limits.validate_holdings(USER_1(), TEN_K / 2);
     limits.validate_holdings(USER_1(), TEN_K / 5);
     limits.validate_holdings(USER_1(), 1);
 }
-
 
 
 #[test]
