@@ -2,8 +2,8 @@ use starknet::ContractAddress;
 use HoldingLimitsComponent::HoldingLimit;
 #[starknet::interface]
 pub trait IHoldingLimits<TContractState> {
-    fn set_hard_limit(ref self: TContractState, address: ContractAddress, new_hard_limit: u256);
-    fn set_soft_limit(ref self: TContractState, address: ContractAddress, new_soft_limit: u256);
+    fn set_hard_holding_limit(ref self: TContractState, address: ContractAddress, new_hard_limit: u256);
+    fn set_soft_holding_limit(ref self: TContractState, address: ContractAddress, new_soft_limit: u256);
     fn get_holding_limit(self: @TContractState, address: ContractAddress) -> HoldingLimit;
     fn get_soft_holding_limit(self: @TContractState, address: ContractAddress) -> u256;
     fn get_hard_holding_limit(self: @TContractState, address: ContractAddress) -> u256;
@@ -57,7 +57,7 @@ pub(crate) mod HoldingLimitsComponent {
         /// Sets hard limit on holdings
         /// To be used by some authority in order to limit how much 
         /// user can hold, user can not his own limit higher than this one
-        fn set_hard_limit(
+        fn set_hard_holding_limit(
             ref self: ComponentState<TContractState>, address: ContractAddress, new_hard_limit: u256
         ) {
             assert(!address.is_zero(), 'Cant set limit for zero');
@@ -93,7 +93,7 @@ pub(crate) mod HoldingLimitsComponent {
         // Sets soft limits on holding
         // To be used by user to set his own holding limits
         // Can never be above hard limit set by some authority
-        fn set_soft_limit(
+        fn set_soft_holding_limit(
             ref self: ComponentState<TContractState>, address: ContractAddress, new_soft_limit: u256
         ) {
             let caller = get_caller_address();
