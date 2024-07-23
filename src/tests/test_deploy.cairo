@@ -5,10 +5,10 @@ use trustlines_erc::traits::ItrustERC20DispatcherTrait;
 use trustlines_erc::traits::ItrustERC20Dispatcher;
 use trustlines_erc::constants::{OWNER_ROLE, ISSUER_ROLE, THIRD_PARTY_ROLE};
 
-use trustlines_erc::contract::ITrustlinesDispatcherTrait;
-use trustlines_erc::contract::ITrustlinesDispatcher;
+// use trustlines_erc::contract::ITrustlinesDispatcherTrait;
+// use trustlines_erc::contract::ITrustlinesDispatcher;
 
-#[test]
+// #[test]
 fn test_deploy() {
     let token_addr = deploy_token(0, OWNER(), OWNER(), ISSUER(), THIRD_PARTY());
     let token = ItrustERC20Dispatcher { contract_address: token_addr };

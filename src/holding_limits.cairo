@@ -2,8 +2,10 @@ use starknet::ContractAddress;
 use HoldingLimitsComponent::HoldingLimit;
 #[starknet::interface]
 pub trait IHoldingLimits<TContractState> {
-    fn set_hard_holding_limit(ref self: TContractState, address: ContractAddress, new_hard_limit: u256);
-    fn set_soft_holding_limit(ref self: TContractState, address: ContractAddress, new_soft_limit: u256);
+    fn set_hard_holding_limit(
+        ref self: TContractState, address: ContractAddress, new_hard_limit: u256
+    );
+    fn set_soft_holding_limit(ref self: TContractState, new_soft_limit: u256);
     fn get_holding_limit(self: @TContractState, address: ContractAddress) -> HoldingLimit;
     fn get_soft_holding_limit(self: @TContractState, address: ContractAddress) -> u256;
     fn get_hard_holding_limit(self: @TContractState, address: ContractAddress) -> u256;
@@ -93,14 +95,11 @@ pub(crate) mod HoldingLimitsComponent {
         // Sets soft limits on holding
         // To be used by user to set his own holding limits
         // Can never be above hard limit set by some authority
-        fn set_soft_holding_limit(
-            ref self: ComponentState<TContractState>, address: ContractAddress, new_soft_limit: u256
-        ) {
+        fn set_soft_holding_limit(ref self: ComponentState<TContractState>, new_soft_limit: u256) {
             let caller = get_caller_address();
-            let old_limit = self.limits.read(address);
+            let old_limit = self.limits.read(caller);
 
-            assert(!address.is_zero(), 'Cant set limit for zero');
-            assert(caller == address, 'Only able to set soft for self');
+            assert(!caller.is_zero(), 'Cant set limit for zero');
 
             // Soft limit can never by above hard limit
             assert(new_soft_limit <= old_limit.hard_limit, 'Cant set soft > hard');
@@ -109,14 +108,12 @@ pub(crate) mod HoldingLimitsComponent {
                 soft_limit: new_soft_limit, hard_limit: old_limit.hard_limit
             };
 
-            self.limits.write(address, new_limit);
+            self.limits.write(caller, new_limit);
 
             self
                 .emit(
                     HoldingSoftLimitSet {
-                        address: address,
-                        limit: new_soft_limit,
-                        previous_limit: old_limit.soft_limit
+                        address: caller, limit: new_soft_limit, previous_limit: old_limit.soft_limit
                     }
                 );
         }

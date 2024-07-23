@@ -25,12 +25,14 @@ pub(crate) mod HoldingLimitsMock {
 
     #[abi(embed_v0)]
     impl HoldingLimits of IHoldingLimits<ContractState> {
-        fn set_hard_holding_limit(ref self: ContractState, address: ContractAddress, new_hard_limit: u256) {
+        fn set_hard_holding_limit(
+            ref self: ContractState, address: ContractAddress, new_hard_limit: u256
+        ) {
             self.holding_limits.set_hard_holding_limit(address, new_hard_limit)
         }
 
-        fn set_soft_holding_limit(ref self: ContractState, address: ContractAddress, new_soft_limit: u256) {
-            self.holding_limits.set_soft_holding_limit(address, new_soft_limit)
+        fn set_soft_holding_limit(ref self: ContractState, new_soft_limit: u256) {
+            self.holding_limits.set_soft_holding_limit(new_soft_limit)
         }
 
         fn validate_holdings(self: @ContractState, address: ContractAddress, holdings: u256) {

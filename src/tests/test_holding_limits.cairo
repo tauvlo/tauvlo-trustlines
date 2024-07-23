@@ -43,7 +43,7 @@ fn test_set_soft_limit() {
     limits.set_hard_holding_limit(USER_1(), TEN_K);
 
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
-    limits.set_soft_holding_limit(USER_1(), TEN_K / 2);
+    limits.set_soft_holding_limit(TEN_K / 2);
 
     // Assert that the limit is correct
     let user_limit = limits.get_holding_limit(USER_1());
@@ -59,7 +59,7 @@ fn test_set_soft_limit_no_hard_set() {
     let limits = IHoldingLimitsDispatcher { contract_address: address };
 
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
-    limits.set_soft_holding_limit(USER_1(), TEN_K / 2);
+    limits.set_soft_holding_limit(TEN_K / 2);
 }
 
 
@@ -73,16 +73,6 @@ fn test_set_hard_limit_zero_address() {
 }
 
 #[test]
-#[should_panic(expected: ('Cant set limit for zero',))]
-fn test_set_soft_limit_zero_address() {
-    let address = setup();
-    let limits = IHoldingLimitsDispatcher { contract_address: address };
-    // Set holding limit for zero address
-    prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
-    limits.set_soft_holding_limit(ZERO_ADDR(), TEN_K);
-}
-
-#[test]
 fn test_validate_holdings() {
     let address = setup();
     let limits = IHoldingLimitsDispatcher { contract_address: address };
@@ -90,7 +80,7 @@ fn test_validate_holdings() {
     // Set holding limit
     limits.set_hard_holding_limit(USER_1(), TEN_K);
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
-    limits.set_soft_holding_limit(USER_1(), TEN_K);
+    limits.set_soft_holding_limit(TEN_K);
 
     limits.validate_holdings(USER_1(), TEN_K / 2);
     limits.validate_holdings(USER_1(), TEN_K / 5);
@@ -122,7 +112,7 @@ fn test_set_hard_limit_update() {
 
     // Set soft limit 
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
-    limits.set_soft_holding_limit(USER_1(), TEN_K / 4);
+    limits.set_soft_holding_limit(TEN_K / 4);
 
     // Set holding limit to zero
     limits.set_hard_holding_limit(USER_1(), 0);
@@ -142,7 +132,7 @@ fn test_validate_holdings_failing() {
 
     // Set soft limit 
     prank(CheatTarget::One(address), USER_1(), CheatSpan::TargetCalls(1));
-    limits.set_soft_holding_limit(USER_1(), TEN_K);
+    limits.set_soft_holding_limit(TEN_K);
 
     limits.validate_holdings(USER_1(), TEN_K * 2);
 }
