@@ -6,7 +6,7 @@ pub trait IHoldingLimits<TContractState> {
         ref self: TContractState, address: ContractAddress, new_hard_limit: u256
     );
     fn set_soft_holding_limit(ref self: TContractState, new_soft_limit: u256);
-    fn get_holding_limit(self: @TContractState, address: ContractAddress) -> HoldingLimit;
+    fn get_holding_limits(self: @TContractState, address: ContractAddress) -> HoldingLimit;
     fn get_soft_holding_limit(self: @TContractState, address: ContractAddress) -> u256;
     fn get_hard_holding_limit(self: @TContractState, address: ContractAddress) -> u256;
     fn validate_holdings(self: @TContractState, address: ContractAddress, holdings: u256);
@@ -118,7 +118,7 @@ pub(crate) mod HoldingLimitsComponent {
                 );
         }
 
-        fn get_holding_limit(
+        fn get_holding_limits(
             self: @ComponentState<TContractState>, address: ContractAddress
         ) -> HoldingLimit {
             self.limits.read(address)

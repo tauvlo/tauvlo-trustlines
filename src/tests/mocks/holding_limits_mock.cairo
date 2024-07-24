@@ -39,8 +39,8 @@ pub(crate) mod HoldingLimitsMock {
             self.holding_limits.validate_holdings(address, holdings)
         }
 
-        fn get_holding_limit(self: @ContractState, address: ContractAddress) -> HoldingLimit {
-            self.holding_limits.get_holding_limit(address)
+        fn get_holding_limits(self: @ContractState, address: ContractAddress) -> HoldingLimit {
+            self.holding_limits.get_holding_limits(address)
         }
 
         fn get_soft_holding_limit(self: @ContractState, address: ContractAddress) -> u256 {

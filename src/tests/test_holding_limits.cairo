@@ -29,7 +29,7 @@ fn test_set_hard_limit() {
     limits.set_hard_holding_limit(USER_1(), TEN_K);
 
     // Assert that the limit is correct
-    let user_limit = limits.get_holding_limit(USER_1());
+    let user_limit = limits.get_holding_limits(USER_1());
     assert(user_limit.hard_limit == TEN_K, 'Wrong hard');
     assert(user_limit.soft_limit == 0, 'Wrong soft');
 }
@@ -46,7 +46,7 @@ fn test_set_soft_limit() {
     limits.set_soft_holding_limit(TEN_K / 2);
 
     // Assert that the limit is correct
-    let user_limit = limits.get_holding_limit(USER_1());
+    let user_limit = limits.get_holding_limits(USER_1());
     assert(user_limit.hard_limit == TEN_K, 'Wrong hard');
     assert(user_limit.soft_limit == TEN_K / 2, 'Wrong soft');
 }
@@ -97,17 +97,17 @@ fn test_set_hard_limit_update() {
     limits.set_hard_holding_limit(USER_1(), TEN_K);
 
     // Assert that the limit is correct
-    let user_limit = limits.get_holding_limit(USER_1());
+    let user_limit = limits.get_holding_limits(USER_1());
     assert(user_limit.hard_limit == TEN_K, 'Wrong limit');
 
     // Set holding limit again
     limits.set_hard_holding_limit(USER_1(), TEN_K * 2);
-    let user_limit1 = limits.get_holding_limit(USER_1());
+    let user_limit1 = limits.get_holding_limits(USER_1());
     assert(user_limit1.hard_limit == TEN_K * 2, 'Wrong limit');
 
     // Set holding limit again
     limits.set_hard_holding_limit(USER_1(), TEN_K / 2);
-    let user_limit2 = limits.get_holding_limit(USER_1());
+    let user_limit2 = limits.get_holding_limits(USER_1());
     assert(user_limit2.hard_limit == TEN_K / 2, 'Wrong limit');
 
     // Set soft limit 
@@ -116,7 +116,7 @@ fn test_set_hard_limit_update() {
 
     // Set holding limit to zero
     limits.set_hard_holding_limit(USER_1(), 0);
-    let user_limit3 = limits.get_holding_limit(USER_1());
+    let user_limit3 = limits.get_holding_limits(USER_1());
     assert(user_limit3.hard_limit == 0, 'Wrong limit');
     assert(user_limit3.soft_limit == 0, 'Wrong limit');
 }
