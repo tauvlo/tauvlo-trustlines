@@ -317,4 +317,3 @@ fn test_decrease_trustline() {
     assert(tline2.amount_effective == TEN_K, 'Wrong effective amount');
 }
 
-
