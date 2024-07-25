@@ -13,8 +13,8 @@ pub(crate) fn OWNER() -> ContractAddress {
 pub(crate) fn ISSUER() -> ContractAddress {
     contract_address_const::<'ISSUER'>()
 }
-pub(crate) fn THIRD_PARTY() -> ContractAddress {
-    contract_address_const::<'THIRD_PARTY'>()
+pub(crate) fn MARKETPLACE() -> ContractAddress {
+    contract_address_const::<'MARKETPLACE'>()
 }
 
 pub(crate) fn ZERO_ADDR() -> ContractAddress {
@@ -38,7 +38,8 @@ pub(crate) fn deploy_token(
     recipient: ContractAddress,
     owner: ContractAddress,
     issuer: ContractAddress,
-    third_party: ContractAddress, // TODO: Better name for last role
+    marketplace: ContractAddress,
+    should_validate: bool
 ) -> ContractAddress {
     let token_contract = declare("trustERC20").unwrap();
 
@@ -48,7 +49,8 @@ pub(crate) fn deploy_token(
     token_deploy_calldata.append(recipient.into());
     token_deploy_calldata.append(owner.into());
     token_deploy_calldata.append(issuer.into());
-    token_deploy_calldata.append(third_party.into());
+    token_deploy_calldata.append(marketplace.into());
+    token_deploy_calldata.append(should_validate.into());
 
     let (token_address, _) = token_contract.deploy(@token_deploy_calldata).unwrap();
 

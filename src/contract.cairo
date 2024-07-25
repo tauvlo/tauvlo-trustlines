@@ -11,7 +11,7 @@ trait ITransferValidator<TState> {
 }
 
 #[starknet::interface]
-trait ItrustERC20<TState> {
+pub trait ItrustERC20<TState> {
     // IERC20Metadata
     fn name(self: @TState) -> ByteArray;
     fn symbol(self: @TState) -> ByteArray;
@@ -26,6 +26,8 @@ trait ItrustERC20<TState> {
     fn transfer_from(
         ref self: TState, sender: ContractAddress, recipient: ContractAddress, amount: u256
     ) -> bool;
+    fn mint(ref self: TState, recipient: ContractAddress, amount: u256);
+    fn burn(ref self: TState, account: ContractAddress, amount: u256);
 
     // ITrustlines
     fn propose_new_trustline(ref self: TState, other_party: ContractAddress, amount: u256) -> bool;
@@ -66,6 +68,7 @@ trait ItrustERC20<TState> {
 
     // Function for setting transfer validation status
     fn set_transfer_validation_status(ref self: TState, should_validate_transfer: bool);
+    fn get_transfer_validation_status(self: @TState) -> bool;
 
     // Upgrade
     fn upgrade(ref self: TState, new_class_hash: ClassHash);
@@ -249,6 +252,25 @@ mod trustERC20 {
             result
         }
 
+        fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {
+            self.accesscontrol.assert_only_role(ISSUER_ROLE);
+
+            // TODO: Is this correct?
+            let marketplace = self.marketplace.read();
+            assert(recipient == marketplace, 'Mint only to marketplace');
+
+            self.erc20._mint(recipient, amount)
+        }
+        fn burn(ref self: ContractState, account: ContractAddress, amount: u256) {
+            self.accesscontrol.assert_only_role(ISSUER_ROLE);
+
+            // TODO: Is this correct?
+            let marketplace = self.marketplace.read();
+            assert(account == marketplace, 'Burn only from marketplace');
+
+            self.erc20._burn(account, amount)
+        }
+
         // ITrustlines
         fn propose_new_trustline(
             ref self: ContractState, other_party: ContractAddress, amount: u256
@@ -348,6 +370,10 @@ mod trustERC20 {
             // TODO: Is this something ISSUER should do? Or OWNER?           
             self.accesscontrol.assert_only_role(ISSUER_ROLE);
             self.validate_transfers.write(should_validate_transfer);
+        }
+
+        fn get_transfer_validation_status(self: @ContractState) -> bool {
+            self.validate_transfers.read()
         }
 
         // Upgrade
