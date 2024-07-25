@@ -26,8 +26,8 @@ pub trait ItrustERC20<TState> {
     fn transfer_from(
         ref self: TState, sender: ContractAddress, recipient: ContractAddress, amount: u256
     ) -> bool;
-    fn mint(ref self: TState, recipient: ContractAddress, amount: u256);
-    fn burn(ref self: TState, account: ContractAddress, amount: u256);
+    // fn mint(ref self: TState, recipient: ContractAddress, amount: u256);
+    // fn burn(ref self: TState, account: ContractAddress, amount: u256);
 
     // ITrustlines
     fn propose_new_trustline(ref self: TState, other_party: ContractAddress, amount: u256) -> bool;
@@ -48,7 +48,7 @@ pub trait ItrustERC20<TState> {
 
     // IHoldingLimits
     fn set_hard_holding_limit(ref self: TState, address: ContractAddress, new_hard_limit: u256);
-    fn set_soft_holding_limit(ref self: TState, address: ContractAddress, new_soft_limit: u256);
+    fn set_soft_holding_limit(ref self: TState, new_soft_limit: u256);
     fn get_holding_limits(self: @TState, address: ContractAddress) -> HoldingLimit;
     fn get_soft_holding_limit(self: @TState, address: ContractAddress) -> u256;
     fn get_hard_holding_limit(self: @TState, address: ContractAddress) -> u256;
@@ -252,24 +252,24 @@ mod trustERC20 {
             result
         }
 
-        fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {
-            self.accesscontrol.assert_only_role(ISSUER_ROLE);
+        // fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {
+        //     self.accesscontrol.assert_only_role(ISSUER_ROLE);
 
-            // TODO: Is this correct?
-            let marketplace = self.marketplace.read();
-            assert(recipient == marketplace, 'Mint only to marketplace');
+        //     // TODO: Is this correct?
+        //     let marketplace = self.marketplace.read();
+        //     assert(recipient == marketplace, 'Mint only to marketplace');
 
-            self.erc20._mint(recipient, amount)
-        }
-        fn burn(ref self: ContractState, account: ContractAddress, amount: u256) {
-            self.accesscontrol.assert_only_role(ISSUER_ROLE);
+        //     self.erc20._mint(recipient, amount)
+        // }
+        // fn burn(ref self: ContractState, account: ContractAddress, amount: u256) {
+        //     self.accesscontrol.assert_only_role(ISSUER_ROLE);
 
-            // TODO: Is this correct?
-            let marketplace = self.marketplace.read();
-            assert(account == marketplace, 'Burn only from marketplace');
+        //     // TODO: Is this correct?
+        //     let marketplace = self.marketplace.read();
+        //     assert(account == marketplace, 'Burn only from marketplace');
 
-            self.erc20._burn(account, amount)
-        }
+        //     self.erc20._burn(account, amount)
+        // }
 
         // ITrustlines
         fn propose_new_trustline(
@@ -315,9 +315,7 @@ mod trustERC20 {
             self.accesscontrol.assert_only_role(ISSUER_ROLE);
             self.holding_limits.set_hard_holding_limit(address, new_hard_limit)
         }
-        fn set_soft_holding_limit(
-            ref self: ContractState, address: ContractAddress, new_soft_limit: u256
-        ) {
+        fn set_soft_holding_limit(ref self: ContractState, new_soft_limit: u256) {
             // No access control needed here,
             // set_soft_holding_limit sets the limit for caller
             self.holding_limits.set_soft_holding_limit(new_soft_limit)
