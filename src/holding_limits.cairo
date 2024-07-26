@@ -1,3 +1,13 @@
+/// HoldingLimits component
+/// 
+/// Module for managing holding limits on user accounts.
+/// Allows setting and enforcing both hard and soft limits on token holdings.
+/// 
+/// This component does not implement any checks and/or admin-like system. It should be only
+/// used along some acces control functionality as it contains functions for permisionless 
+/// state changes.
+
+// HoldingLimits interface
 use starknet::ContractAddress;
 use HoldingLimitsComponent::HoldingLimit;
 #[starknet::interface]
@@ -18,11 +28,13 @@ pub(crate) mod HoldingLimitsComponent {
     use starknet::{ContractAddress, get_caller_address};
     use core::cmp::min;
 
+    /// `HoldingLimit` struct, for storing information about holding limits for an address
+    /// 
+    /// `hard_limit` is the maximum limit set by an authority
+    /// `soft_limit` is the user-defined limit, which cannot exceed the hard limit
     #[derive(Copy, Drop, Serde, starknet::Store, Debug)]
     pub struct HoldingLimit {
-        // Set by authority
         pub hard_limit: u256,
-        // Set by user, can never be > hard_limit
         pub soft_limit: u256
     }
 
@@ -31,6 +43,12 @@ pub(crate) mod HoldingLimitsComponent {
         limits: LegacyMap<ContractAddress, HoldingLimit>
     }
 
+
+    /// `HoldingHardLimitSet` event emitted when a hard holding limit is set or changed
+    /// 
+    /// `address` is the address for which the limit is set
+    /// `limit` is the new hard limit value
+    /// `previous_limit` is the previous hard limit value
     #[derive(starknet::Event, Drop)]
     struct HoldingHardLimitSet {
         address: ContractAddress,
@@ -38,6 +56,11 @@ pub(crate) mod HoldingLimitsComponent {
         previous_limit: u256
     }
 
+    /// `HoldingSoftLimitSet` event emitted when a soft holding limit is set or changed
+    /// 
+    /// `address` is the address for which the limit is set
+    /// `limit` is the new soft limit value
+    /// `previous_limit` is the previous soft limit value
     #[derive(starknet::Event, Drop)]
     struct HoldingSoftLimitSet {
         address: ContractAddress,
@@ -56,9 +79,14 @@ pub(crate) mod HoldingLimitsComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
-        /// Sets hard limit on holdings
-        /// To be used by some authority in order to limit how much 
-        /// user can hold, user can not his own limit higher than this one
+        /// Function for setting the hard holding limit for a specific address
+        /// 
+        /// Arguments:
+        ///     - `address` - The address for which to set the limit
+        ///     - `new_hard_limit` - The new hard limit value
+        /// 
+        /// Events:
+        ///     - Emits a `HoldingHardLimitSet` event upon successful limit set
         fn set_hard_holding_limit(
             ref self: ComponentState<TContractState>, address: ContractAddress, new_hard_limit: u256
         ) {
@@ -72,11 +100,6 @@ pub(crate) mod HoldingLimitsComponent {
             // If the limit is already set, then it'll be either user's one,
             // or the new hard limit 
             let soft_limit = min(old_limit.soft_limit, new_hard_limit);
-
-            // TODO: If new limit is below user holdings, 
-            // then user might be unable to send the funds anywhere
-            // since even after transfer his balance would be above holding limit
-            // so only choice would be to send lump sum to ie. marketplace
 
             let new_limit = HoldingLimit { soft_limit: soft_limit, hard_limit: new_hard_limit };
 
@@ -92,9 +115,14 @@ pub(crate) mod HoldingLimitsComponent {
                 );
         }
 
-        // Sets soft limits on holding
-        // To be used by user to set his own holding limits
-        // Can never be above hard limit set by some authority
+
+        /// Function for setting the soft holding limit for the caller's address
+        /// 
+        /// Arguments:
+        ///     - `new_soft_limit` - The new soft limit value
+        /// 
+        /// Events:
+        ///     - Emits a `HoldingSoftLimitSet` event upon successful limit set
         fn set_soft_holding_limit(ref self: ComponentState<TContractState>, new_soft_limit: u256) {
             let caller = get_caller_address();
             let old_limit = self.limits.read(caller);
@@ -118,12 +146,26 @@ pub(crate) mod HoldingLimitsComponent {
                 );
         }
 
+        /// Function for retrieving the holding limits for a specific address
+        /// 
+        /// Arguments:
+        ///     - `address` - The address for which to get the limits
+        /// 
+        /// Returns:
+        ///     - Returns the `HoldingLimit` struct representing the limits for the address
         fn get_holding_limits(
             self: @ComponentState<TContractState>, address: ContractAddress
         ) -> HoldingLimit {
             self.limits.read(address)
         }
 
+        /// Function for retrieving the soft holding limit for a specific address
+        /// 
+        /// Arguments:
+        ///     - `address` - The address for which to get the soft limit
+        /// 
+        /// Returns:
+        ///     - Returns the soft holding limit as a u256
         fn get_soft_holding_limit(
             self: @ComponentState<TContractState>, address: ContractAddress
         ) -> u256 {
@@ -131,6 +173,13 @@ pub(crate) mod HoldingLimitsComponent {
             limit.soft_limit
         }
 
+        /// Function for retrieving the hard holding limit for a specific address
+        /// 
+        /// Arguments:
+        ///     - `address` - The address for which to get the hard limit
+        /// 
+        /// Returns:
+        ///     - Returns the hard holding limit as a u256
         fn get_hard_holding_limit(
             self: @ComponentState<TContractState>, address: ContractAddress
         ) -> u256 {
@@ -138,6 +187,14 @@ pub(crate) mod HoldingLimitsComponent {
             limit.hard_limit
         }
 
+        /// Function for validating that the holdings of an address do not exceed its soft limit
+        /// 
+        /// Arguments:
+        ///     - `address` - The address to validate
+        ///     - `holdings` - The current holdings of the address
+        /// 
+        /// Panics:
+        ///     - Panics if the holdings exceed the soft limit
         fn validate_holdings(
             self: @ComponentState<TContractState>, address: ContractAddress, holdings: u256
         ) {
