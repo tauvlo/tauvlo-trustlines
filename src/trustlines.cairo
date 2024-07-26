@@ -1,4 +1,4 @@
-/// # Trustlines Component
+/// Trustlines Component
 /// 
 /// The Trustlines Component allows tokens to implement limitations on transfers by using
 /// trustlines system.
@@ -6,6 +6,8 @@
 /// This component does not implement any checks and/or admin-like system. It should be only
 /// used along some acces control functionality as it contains functions for permisionless 
 /// state changes.
+
+// Trustline Interface
 use starknet::ContractAddress;
 #[starknet::interface]
 pub trait ITrustlines<TContractState> {
@@ -50,6 +52,8 @@ pub(crate) mod TrustlinesComponent {
     ///     - either proposed for establishing the trustline or for increasing it
     /// `proposing_party` is the party that's currently proposing an amount
     ///     - other party then need to confirm 
+    /// `party_a_used` is how much of the trustline has party_a used
+    /// `party_b_used` is how much of the trustline has party_b used
     #[derive(Copy, Drop, Serde, starknet::Store, Debug)]
     pub struct Trustline {
         pub party_a: ContractAddress,
@@ -61,41 +65,82 @@ pub(crate) mod TrustlinesComponent {
         pub party_b_used: u256,
     }
 
+    // Trustline struct impl for more convenient usage
     #[generate_trait]
     pub impl TrustlineImpl of TrustlineTrait {
+        /// Checks whether the trustline exists
+        /// 
+        /// Returns:
+        ///     - `true` if both party addresses are non-zero, `false` otherwise
         fn exists(self: Trustline) -> bool {
             !self.party_a.is_zero() && !self.party_b.is_zero()
         }
 
+        /// Checks whether the trustline is effective
+        /// 
+        /// Returns:
+        ///     - `true` if the effective amount is greater than zero, `false` otherwise
         fn is_effective(self: Trustline) -> bool {
             self.amount_effective > 0
         }
 
+        /// Checks whether a trustline proposal exists
+        /// 
+        /// Returns:
+        ///     - `true` if the proposed amount is greater than zero, `false` otherwise
         fn is_proposed(self: Trustline) -> bool {
             self.amount_proposed > 0
         }
 
+        /// Checks whether the trustline is being used by either party
+        /// 
+        /// Returns:
+        ///     - `true` if either party has used any amount of the trustline, `false` otherwise
         fn is_used(self: Trustline) -> bool {
             self.party_a_used != 0 || self.party_b_used != 0
         }
 
+        /// Returns a new Trustline with cleared proposal fields
+        /// 
+        /// Returns:
+        ///     - A new Trustline instance with `amount_proposed` set to zero and `proposing_party` set to the zero address
         fn with_cleared_proposal(self: Trustline) -> Trustline {
-            // Return trustline with zero proposed and
-            // no proposing party
             Trustline { amount_proposed: 0, proposing_party: contract_address_const::<0>(), ..self }
         }
 
+        /// Returns a new Trustline with updated proposal fields
+        /// 
+        /// Arguments:
+        ///     - `proposed_amount` - The new proposed amount for the trustline
+        ///     - `proposer` - The address of the party proposing the new amount
+        /// 
+        /// Returns:
+        ///     - A new Trustline instance with updated `amount_proposed` and `proposing_party`
         fn with_new_proposal(
             self: Trustline, proposed_amount: u256, proposer: ContractAddress
         ) -> Trustline {
             Trustline { amount_proposed: proposed_amount, proposing_party: proposer, ..self }
         }
 
+        /// Returns a new Trustline with an updated effective amount
+        /// 
+        /// Arguments:
+        ///     - `effective_amount` - The new effective amount for the trustline
+        /// 
+        /// Returns:
+        ///     - A new Trustline instance with the updated `amount_effective`
         fn with_effective_amount(self: Trustline, effective_amount: u256) -> Trustline {
-            // Return trustline with new effective amount
             Trustline { amount_effective: effective_amount, ..self }
         }
 
+        /// Returns a new Trustline with updated usage amounts for both parties
+        /// 
+        /// Arguments:
+        ///     - `party_a_used` - The new amount used by party A
+        ///     - `party_b_used` - The new amount used by party B
+        /// 
+        /// Returns:
+        ///     - A new Trustline instance with updated `party_a_used` and `party_b_used`
         fn with_updated_usage(
             self: Trustline, party_a_used: u256, party_b_used: u256
         ) -> Trustline {
@@ -135,6 +180,12 @@ pub(crate) mod TrustlinesComponent {
         previous_amount: u256
     }
 
+    /// `TrustlineTransfer` event emitted when a trustline transfer occurs
+    /// 
+    /// `from` is the address of the sender
+    /// `to` is the address of the recipient
+    /// `amount` is the amount transferred
+    /// `trustline_after` is the state of the trustline after the transfer
     #[derive(starknet::Event, Drop)]
     struct TrustlineTransfer {
         from: ContractAddress,
@@ -170,6 +221,17 @@ pub(crate) mod TrustlinesComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
+        /// Function for proposing a new trustline between the caller and another party
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the other party in the proposed trustline
+        ///     - `amount` - The proposed amount for the trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the proposal was successfully created
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineProposed` event upon successful creation of the proposal
         fn propose_new_trustline(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
         ) -> bool {
@@ -178,12 +240,7 @@ pub(crate) mod TrustlinesComponent {
 
             assert(proposer != other_party, Errors::OTHER_PARTY_IS_CALLER);
             assert(!other_party.is_zero(), Errors::OTHER_PARTY_ZERO);
-            // TODO: Here we're checking that it doesnt exist, however if there
-            //      already exists a proposal and the caller is the proposer
-            //      then we should probably let him alter the proposal
             assert(!trustline.exists(), Errors::NEW_PROPOSED_TRUSTLINE_EXISTS);
-
-            // Assert that new proposed trustline amount is not zero
             assert(amount > 0, Errors::PROPOSED_AMOUNT_ZERO);
 
             // Create new Trustline struct
@@ -216,6 +273,17 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
+        /// Function for accepting a proposed new trustline
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the party who proposed the trustline
+        ///     - `amount` - The amount the caller agrees to for the trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the trustline was successfully established
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineEstablished` event upon successful acceptance
         fn accept_new_trustline_proposal(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
         ) -> bool {
@@ -249,6 +317,17 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
+        /// Function for proposing a modification to an existing trustline
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the other party in the trustline
+        ///     - `amount` - The new proposed amount for the trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the modification proposal was successfully created
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineProposed` event upon successful creation of the proposal
         fn propose_modify_trustline(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
         ) -> bool {
@@ -286,13 +365,21 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
+        /// Function for accepting a proposed modification to an existing trustline
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the party who proposed the modification
+        ///     - `amount` - The amount the caller agrees to for the modified trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the trustline was successfully modified
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineEstablished` event upon successful acceptance
         fn accept_modify_trustline_proposal(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
         ) -> bool {
             // Function for acception modification proposal of existing trustline
-
-            // TODO: This function is basically the same as the one for accepting 
-            // new trustlines, mby merge them to one function
 
             let caller = get_caller_address();
             let trustline = self._read_trustline(caller, other_party);
@@ -326,6 +413,16 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
+        /// Function for cancelling a trustline proposal
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the other party in the proposed trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the proposal was successfully cancelled
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineProposed` event with amount 0 upon successful cancellation
         fn cancel_trustline_proposal(
             ref self: ComponentState<TContractState>, other_party: ContractAddress
         ) -> bool {
@@ -360,12 +457,17 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
-        // TODO: Tests for this function
+        /// Function for deleting a trustline between two parties
+        /// 
+        /// Arguments:
+        ///     - `party_a` - The address of one party in the trustline
+        ///     - `party_b` - The address of the other party in the trustline
         fn delete_trustline(
             ref self: ComponentState<TContractState>,
             party_a: ContractAddress,
             party_b: ContractAddress
         ) {
+            // TODO: Tests for this function
             assert(!party_a.is_zero(), 'Party a is zero');
             assert(!party_b.is_zero(), 'Party a is zero');
 
@@ -384,9 +486,13 @@ pub(crate) mod TrustlinesComponent {
             self.trustlines.write(key, empty_trustline);
         }
 
-        // TODO: should this emit an event?
-        // TODO: Tests for this function
+        /// Function for modifying a trustline directly (to be used by admins)
+        /// 
+        /// Arguments:
+        ///     - `trustline` - The new state of the trustline to be set
         fn modify_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
+            // TODO: should this emit an event?
+            // TODO: Tests for this function
             // Function to be used by admins etc.
             assert(!trustline.party_a.is_zero(), 'Party a is zero');
             assert(!trustline.party_b.is_zero(), 'Party b is zero');
@@ -394,6 +500,17 @@ pub(crate) mod TrustlinesComponent {
             self._write_trustline(trustline);
         }
 
+        /// Function for decreasing the amount of an existing trustline
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the other party in the trustline
+        ///     - `amount` - The new, decreased amount for the trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the trustline was successfully decreased
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineEstablished` event upon successful decrease
         fn decrease_trustline(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
         ) -> bool {
@@ -424,6 +541,18 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
+        /// Function for performing a trustline transfer
+        /// 
+        /// Arguments:
+        ///     - `from` - The address of the sender
+        ///     - `to` - The address of the recipient
+        ///     - `amount` - The amount to be transferred
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the transfer was successful
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineTransfer` event upon successful transfer
         fn trustline_transfer(
             ref self: ComponentState<TContractState>,
             from: ContractAddress,
@@ -507,6 +636,14 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
+        /// Function for retrieving the trustline between two parties
+        /// 
+        /// Arguments:
+        ///     - `party_a` - The address of one party in the trustline
+        ///     - `party_b` - The address of the other party in the trustline
+        /// 
+        /// Returns:
+        ///     - Returns the `Trustline` struct representing the trustline between the parties
         fn get_trustline(
             self: @ComponentState<TContractState>,
             party_a: ContractAddress,
@@ -535,7 +672,6 @@ pub(crate) mod TrustlinesComponent {
             }
         }
 
-        // TODO: factor out the address sorting here and in read
         fn _write_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
             let key = self._get_trustlines_storage_keys(trustline.party_a, trustline.party_b);
             self.trustlines.write(key, trustline)
