@@ -423,6 +423,11 @@ pub(crate) mod TrustlinesComponent {
         /// 
         /// Events:
         ///     - Emits a `TrustlineProposed` event with amount 0 upon successful cancellation
+        /// 
+        /// Note:
+        ///     - If user cancels a new proposal, the trustline will still exist since this 
+        ///       function will just delete the trustline's proposal, not the trustline itself.
+        ///       So for next proposing a new trustline again, it has to be propose_modify_trustline.
         fn cancel_trustline_proposal(
             ref self: ComponentState<TContractState>, other_party: ContractAddress
         ) -> bool {
@@ -438,10 +443,6 @@ pub(crate) mod TrustlinesComponent {
 
             let new_trustline = trustline.with_cleared_proposal();
 
-            // TODO: If the proposal was for a new trustline,
-            // then user would have to propose modify and not new one,
-            // so if the trustline has no effective and no usage,
-            // should we just delete it?
             self._write_trustline(new_trustline);
 
             self
@@ -457,48 +458,50 @@ pub(crate) mod TrustlinesComponent {
             true
         }
 
+        ///////////////
+        /// Note:
+        ///     - delete_trustline and modify_trustline currently disabled,
+        ///       uncomment if neccessary, however even if ie. some authority
+        ///       deleted or modified a trustline, users could just set it up again
+        ///       so these functions might be redundant
+        ///////////////
         /// Function for deleting a trustline between two parties
         /// 
         /// Arguments:
         ///     - `party_a` - The address of one party in the trustline
         ///     - `party_b` - The address of the other party in the trustline
-        fn delete_trustline(
-            ref self: ComponentState<TContractState>,
-            party_a: ContractAddress,
-            party_b: ContractAddress
-        ) {
-            // TODO: Tests for this function
-            assert(!party_a.is_zero(), 'Party a is zero');
-            assert(!party_b.is_zero(), 'Party a is zero');
+        // fn delete_trustline(
+        //     ref self: ComponentState<TContractState>,
+        //     party_a: ContractAddress,
+        //     party_b: ContractAddress
+        // ) {
+        //     assert(!party_a.is_zero(), 'Party a is zero');
+        //     assert(!party_b.is_zero(), 'Party a is zero');
 
-            let key = self._get_trustlines_storage_keys(party_a, party_b);
+        //     let key = self._get_trustlines_storage_keys(party_a, party_b);
 
-            let empty_trustline = Trustline {
-                party_a: contract_address_const::<0>(),
-                party_b: contract_address_const::<0>(),
-                amount_effective: 0,
-                amount_proposed: 0,
-                proposing_party: contract_address_const::<0>(),
-                party_a_used: 0,
-                party_b_used: 0,
-            };
-
-            self.trustlines.write(key, empty_trustline);
-        }
-
+        //     let empty_trustline = Trustline {
+        //         party_a: contract_address_const::<0>(),
+        //         party_b: contract_address_const::<0>(),
+        //         amount_effective: 0,
+        //         amount_proposed: 0,
+        //         proposing_party: contract_address_const::<0>(),
+        //         party_a_used: 0,
+        //         party_b_used: 0,
+        //     };
+        //     self.trustlines.write(key, empty_trustline);
+        // }
         /// Function for modifying a trustline directly (to be used by admins)
         /// 
         /// Arguments:
         ///     - `trustline` - The new state of the trustline to be set
-        fn modify_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
-            // TODO: should this emit an event?
-            // TODO: Tests for this function
-            // Function to be used by admins etc.
-            assert(!trustline.party_a.is_zero(), 'Party a is zero');
-            assert(!trustline.party_b.is_zero(), 'Party b is zero');
+        // fn modify_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
+        //     // Function to be used by admins etc.
+        //     assert(!trustline.party_a.is_zero(), 'Party a is zero');
+        //     assert(!trustline.party_b.is_zero(), 'Party b is zero');
 
-            self._write_trustline(trustline);
-        }
+        //     self._write_trustline(trustline);
+        // }
 
         /// Function for decreasing the amount of an existing trustline
         /// 
@@ -511,6 +514,10 @@ pub(crate) mod TrustlinesComponent {
         /// 
         /// Events:
         ///     - Emits a `TrustlineEstablished` event upon successful decrease
+        /// 
+        /// Note:
+        ///     -  Subsequent interactions with trustline might fail if it's decreased
+        ///        below the currently used amount, preferably warn the user.
         fn decrease_trustline(
             ref self: ComponentState<TContractState>, other_party: ContractAddress, amount: u256
         ) -> bool {
@@ -521,7 +528,7 @@ pub(crate) mod TrustlinesComponent {
             assert(caller != other_party, Errors::OTHER_PARTY_IS_CALLER);
             assert(!other_party.is_zero(), Errors::OTHER_PARTY_ZERO);
             assert(trustline.exists(), Errors::NO_TRUSTLINE_FOUND);
-            // TODO: What if the amount is lower than what is currently used?
+
             assert(amount < trustline.amount_effective, Errors::INVALID_DECREASE_AMOUNT);
 
             let new_trustline = trustline.with_effective_amount(amount);
@@ -553,6 +560,11 @@ pub(crate) mod TrustlinesComponent {
         /// 
         /// Events:
         ///     - Emits a `TrustlineTransfer` event upon successful transfer
+        /// 
+        /// Note:
+        ///     - If user decreased the effective amount of the trustline, 
+        ///       and now it is below what was previously used by `from` then 
+        ///       this function might fail.
         fn trustline_transfer(
             ref self: ComponentState<TContractState>,
             from: ContractAddress,
@@ -597,7 +609,6 @@ pub(crate) mod TrustlinesComponent {
                 (trustline.party_b_used, trustline.party_a_used)
             };
 
-            // TODO: What if after proposal from_used is higher thatn amount_effective? This could underflow
             let available_from_limit = if from_used >= to_used {
                 trustline.amount_effective - from_used
             } else {
@@ -612,7 +623,6 @@ pub(crate) mod TrustlinesComponent {
             let new_used_from = from_used + increase_used_from_by;
             let new_used_to = to_used - decrease_used_to_by;
 
-            // TODO: What if after proposal used is higher that amount_effective? This check could fail.
             assert(new_used_from <= trustline.amount_effective, 'From used too much');
             assert(new_used_to <= trustline.amount_effective, 'To used too much');
 
