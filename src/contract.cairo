@@ -252,7 +252,12 @@ mod trustERC20 {
             assert_not_frozen(recipient, 'Recipient frozen');
             let result = self.erc20.transfer(recipient, amount);
 
-            self.trustlines.trustline_transfer(caller, recipient, amount);
+            if is_marketplace(recipient) {
+                trustline_transfer_to_marketplace(caller, amount);
+            } else {
+                self.trustlines.trustline_transfer(caller, recipient, amount);
+            }
+
             assert_balance_not_over_holding_limit(recipient);
 
             result
@@ -283,7 +288,12 @@ mod trustERC20 {
             let result = self.erc20.transfer_from(sender, recipient, amount);
             assert_not_frozen(sender, 'Sender frozen');
             assert_not_frozen(recipient, 'Recipient frozen');
-            self.trustlines.trustline_transfer(sender, recipient, amount);
+
+            if is_marketplace(recipient) {
+                trustline_transfer_to_marketplace(sender, amount);
+            } else {
+                self.trustlines.trustline_transfer(sender, recipient, amount);
+            }
 
             assert_balance_not_over_holding_limit(recipient);
             result
@@ -621,6 +631,79 @@ mod trustERC20 {
             validator_contract.is_transfer_valid(sender, recipient, amount)
         } else {
             true
+        }
+    }
+
+    /// Checks if address is the same as the stored address of marketplacea
+    /// 
+    /// Arguments:
+    ///     - `address` - The address to check
+    /// 
+    /// Returns:
+    ///     - Returns `true` if address is marketplace
+    fn is_marketplace(address: ContractAddress) -> bool {
+        let state = unsafe_new_contract_state();
+
+        address == state.marketplace.read()
+    }
+
+    /// Handles a trustline transfer from a user to the marketplace.
+    /// 
+    /// This function updates the trustline between the sender and the marketplace when 
+    /// tokens are transferred to the marketplace. It ensures that the user's usage 
+    /// remains at zero and reduces the marketplace's usage based on the transferred amount.
+    /// 
+    /// Arguments:
+    ///     - `sender` - The address of the user sending tokens to the marketplace
+    ///     - `amount` - The amount of tokens being transferred
+    /// 
+    /// Panics:
+    ///     - Panics if the user has any recorded usage in the trustline with the marketplace
+    /// 
+    /// Notes:
+    ///     - If the marketplace has no used amount in the trustline, this function does nothing
+    ///     - The marketplace's used amount is reduced by the transferred amount, potentially to zero
+    fn trustline_transfer_to_marketplace(sender: ContractAddress, amount: u256) {
+        let mut state = unsafe_new_contract_state();
+        let marketplace = state.marketplace.read();
+
+        let trustline = state.trustlines.get_trustline(marketplace, sender);
+
+        let (marketplace_used, user_used) = if marketplace == trustline.party_a {
+            (trustline.party_a_used, trustline.party_b_used)
+        } else {
+            (trustline.party_b_used, trustline.party_a_used)
+        };
+
+        // If user sends funds to marketplace, then they do not use their limit
+        // they firstly lower the usage by marketplace, but then it keeps at zero
+        assert(user_used == 0, 'Wrong user usage');
+        if marketplace_used == 0 {
+            // Here marketplace has no used so there is no need to alter the trustline 
+            return;
+        } else {
+            // If amount is over the used then set is to zero, otherwise decrease it
+            let new_market_place_used = if amount >= marketplace_used {
+                0
+            } else {
+                marketplace_used - amount
+            };
+
+            // Create new trustline with updated market place used
+            // Order of party_a and party_b doeasnt matter here since
+            // it'll be written in the LegacyMap with same keys no matter the ordering
+            let new_trustline = Trustline {
+                party_a: marketplace,
+                party_b: sender,
+                amount_effective: trustline.amount_effective,
+                amount_proposed: trustline.amount_proposed,
+                proposing_party: trustline.proposing_party,
+                party_a_used: new_market_place_used,
+                party_b_used: 0
+            };
+
+            // Modify trustline
+            state.trustlines.modify_trustline(new_trustline);
         }
     }
 }

@@ -491,17 +491,20 @@ pub(crate) mod TrustlinesComponent {
         //     };
         //     self.trustlines.write(key, empty_trustline);
         // }
-        /// Function for modifying a trustline directly (to be used by admins)
-        /// 
-        /// Arguments:
-        ///     - `trustline` - The new state of the trustline to be set
-        // fn modify_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
-        //     // Function to be used by admins etc.
-        //     assert(!trustline.party_a.is_zero(), 'Party a is zero');
-        //     assert(!trustline.party_b.is_zero(), 'Party b is zero');
 
-        //     self._write_trustline(trustline);
-        // }
+        // Function for modifying a trustline directly 
+        // 
+        // Arguments:
+        //     - `trustline` - The new state of the trustline to be set
+        // 
+        // Note:
+        //     - Doesn't implement any access restriction itself
+        fn modify_trustline(ref self: ComponentState<TContractState>, trustline: Trustline) {
+            assert(!trustline.party_a.is_zero(), 'Party a is zero');
+            assert(!trustline.party_b.is_zero(), 'Party b is zero');
+
+            self._write_trustline(trustline);
+        }
 
         /// Function for decreasing the amount of an existing trustline
         /// 
@@ -601,7 +604,8 @@ pub(crate) mod TrustlinesComponent {
             // `party_b_used` fields of trustline struct, ensuring that the used is 
             // never above effective amount. For example, in state after case A, 
             // Alice used 30k of the trustline, so the fields would be: 
-            // `party_a_used` = 30k, `party_b_used` = 0, and Bob implicitly can spend 80k (30k to decrease alice limit to 0, then 50k of his own)
+            // `party_a_used` = 30k, `party_b_used` = 0, and Bob implicitly can spend 80k 
+            // (30k to decrease alice limit to 0, then 50k of his own)
 
             let (from_used, to_used) = if from == trustline.party_a {
                 (trustline.party_a_used, trustline.party_b_used)

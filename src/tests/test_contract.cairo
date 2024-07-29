@@ -452,14 +452,114 @@ fn test_contract_pull_assets() {
     assert(token.balance_of(OWNER()) == TEN_K, 'Wrong owner bal2');
 }
 
+#[test]
+#[should_panic(expected: ('Caller is missing role',))]
+fn test_contract_pull_assets_address_not_permitted() {
+    let (token_address, token) = setup();
 
-// TODO TESTS
-// Transfer
-//     - Under trustline limit
-//     - Over trustline limit
-//     - Under holding limit
-//     - Over holding limit
-// Transfer to market place
+    set_hard_soft_limit(token_address, USER_1(), FIFTY_K, FIFTY_K,);
+    create_trustline(token_address, MARKETPLACE(), USER_1(), FIFTY_K);
+    fund_account(token_address, USER_1(), TEN_K);
+
+    assert(token.balance_of(USER_1()) == TEN_K, 'Wrong user bal1');
+    assert(token.balance_of(OWNER()) == 0, 'Wrong owner bal1');
+
+    prank(CheatTarget::One(token_address), USER_1(), CheatSpan::TargetCalls(1));
+    token.pull_assets(USER_1(), OWNER(), TEN_K);
+}
+
+
+#[test]
+fn test_transfer_to_marketplace() {
+    let (token_address, token) = setup();
+
+    set_hard_soft_limit(token_address, USER_1(), FIFTY_K, FIFTY_K);
+    set_hard_soft_limit(token_address, USER_2(), FIFTY_K, FIFTY_K);
+    // Set limits for marketplace too
+    set_hard_soft_limit(token_address, MARKETPLACE(), FIFTY_K * 100, FIFTY_K * 100);
+
+    create_trustline(token_address, MARKETPLACE(), USER_1(), FIFTY_K);
+    create_trustline(token_address, MARKETPLACE(), USER_2(), FIFTY_K);
+    create_trustline(token_address, USER_1(), USER_2(), FIFTY_K);
+
+    // Fund user 1 with some tokens
+    fund_account(token_address, USER_1(), FIFTY_K);
+
+    let tline = token.get_trustline(USER_1(), MARKETPLACE());
+    assert(tline.party_a_used == FIFTY_K, 'Wrong marketplace used');
+    assert(tline.party_b_used == 0, 'Wrong user used');
+    assert(token.balance_of(USER_1()) == FIFTY_K, 'Wrong balance used');
+    assert(token.balance_of(MARKETPLACE()) == FIFTY_K * 9, 'Wrong balance marketplace');
+
+    let tline2 = token.get_trustline(USER_2(), MARKETPLACE());
+    assert(tline2.party_a_used == 0, 'Wrong marketplace used');
+    assert(tline2.party_b_used == 0, 'Wrong user used');
+    assert(token.balance_of(USER_2()) == 0, 'Wrong balance userj');
+
+    let tline3 = token.get_trustline(USER_2(), USER_1());
+    assert(tline3.party_a_used == 0, 'Wrong marketplace used');
+    assert(tline3.party_b_used == 0, 'Wrong user used');
+
+    // User 1 sends half the funds back to Marketplace and half to User 2
+    prank(CheatTarget::One(token_address), USER_1(), CheatSpan::TargetCalls(2));
+    token.transfer(MARKETPLACE(), FIFTY_K / 2);
+    token.transfer(USER_2(), FIFTY_K / 2);
+
+    let tline4 = token.get_trustline(USER_1(), MARKETPLACE());
+    assert(tline4.party_a_used == FIFTY_K / 2, 'Wrong marketplace used');
+    assert(tline4.party_b_used == 0, 'Wrong user used');
+    assert(token.balance_of(USER_1()) == 0, 'Wrong balance user');
+    assert(token.balance_of(MARKETPLACE()) == FIFTY_K * 19 / 2, 'Wrong balance marketplace');
+
+    let tline5 = token.get_trustline(USER_2(), USER_1());
+    assert(tline5.party_a_used == FIFTY_K / 2, 'Wrong user1 used');
+    assert(tline5.party_b_used == 0, 'Wrong user2 used');
+    assert(token.balance_of(USER_2()) == FIFTY_K / 2, 'Wrong balance user');
+
+    // User 2 sends everything to marketplace
+    prank(CheatTarget::One(token_address), USER_2(), CheatSpan::TargetCalls(2));
+    token.transfer(MARKETPLACE(), FIFTY_K / 2);
+
+    let tline6 = token.get_trustline(MARKETPLACE(), USER_2());
+    assert(tline6.party_a_used == 0, 'Wrong marketplace used');
+    assert(tline6.party_b_used == 0, 'Wrong user2 used');
+    assert(token.balance_of(USER_2()) == 0, 'Wrong balance user');
+    assert(token.balance_of(MARKETPLACE()) == FIFTY_K * 10, 'Wrong balance marketplace');
+
+    // Marketplace sends 50k to user 2
+    prank(CheatTarget::One(token_address), MARKETPLACE(), CheatSpan::TargetCalls(2));
+    token.transfer(USER_2(), FIFTY_K);
+
+    let tline7 = token.get_trustline(MARKETPLACE(), USER_2());
+    assert(tline7.party_a_used == FIFTY_K, 'Wrong marketplace used');
+    assert(tline7.party_b_used == 0, 'Wrong user2 used');
+    assert(token.balance_of(USER_2()) == FIFTY_K, 'Wrong balance user');
+    assert(token.balance_of(MARKETPLACE()) == FIFTY_K * 9, 'Wrong balance marketplace');
+
+    // User 2 sends fifty k to user 1
+    prank(CheatTarget::One(token_address), USER_2(), CheatSpan::TargetCalls(2));
+    token.transfer(USER_1(), FIFTY_K);
+
+    let tline8 = token.get_trustline(USER_1(), USER_2());
+    assert(tline8.party_a_used == 0, 'Wrong user1 used');
+    // User 1 send 25k already before so user 2 only used 25k
+    assert(tline8.party_b_used == FIFTY_K / 2, 'Wrong user2 used');
+    assert(token.balance_of(USER_2()) == 0, 'Wrong balance user');
+    assert(token.balance_of(USER_1()) == FIFTY_K, 'Wrong balance user');
+
+    // User 1 sends 50 k to marketplace
+    // He can do se even though the trustline is for 50k since 
+    // transfers to marketplace are unlimited
+    prank(CheatTarget::One(token_address), USER_1(), CheatSpan::TargetCalls(2));
+    token.transfer(MARKETPLACE(), FIFTY_K);
+
+    let tline9 = token.get_trustline(MARKETPLACE(), USER_1());
+    assert(tline9.party_a_used == 0, 'Wrong marketplace used');
+    assert(tline9.party_b_used == 0, 'Wrong user1 used');
+    assert(token.balance_of(MARKETPLACE()) == FIFTY_K * 10, 'Wrong balance marketplace');
+    assert(token.balance_of(USER_1()) == 0, 'Wrong balance user');
+}
+
 
 ////////////////////////////////////////////////
 // Helper functions for easier testing
@@ -517,4 +617,3 @@ fn test_transfer_setup(token_address: ContractAddress,) {
     // Create trustline between user 1 and user 2
     create_trustline(token_address, USER_1(), USER_2(), FIFTY_K);
 }
-
