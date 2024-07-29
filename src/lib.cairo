@@ -16,5 +16,6 @@ pub mod tests {
     pub mod mocks {
         pub mod trustlines_mock;
         pub mod holding_limits_mock;
+        pub mod transfer_validator_mock;
     }
 }

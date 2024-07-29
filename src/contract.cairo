@@ -1,15 +1,21 @@
+/// A trustline-based ERC20 token implementation with additional features like holding limits, 
+/// asset freezing, and transfer validation. This contract combines standard ERC20 functionality 
+/// with trustlines, access control, and upgradability.
+
 use starknet::ContractAddress;
 use starknet::ClassHash;
 use trustlines_erc::trustlines::TrustlinesComponent::Trustline;
 use trustlines_erc::holding_limits::HoldingLimitsComponent::HoldingLimit;
 
+// Interface for transfer validator
 #[starknet::interface]
-trait ITransferValidator<TState> {
-    fn validate_transfer(
+pub trait ITransferValidator<TState> {
+    fn is_transfer_valid(
         self: @TState, sender: ContractAddress, recipient: ContractAddress, amount: u256
-    );
+    ) -> bool;
 }
 
+/// Interface for the trustERC20 contract
 #[starknet::interface]
 pub trait ItrustERC20<TState> {
     // IERC20Metadata
@@ -135,8 +141,7 @@ mod trustERC20 {
         holding_limits: HoldingLimitsComponent::Storage,
         #[substorage(v0)]
         upgrades: UpgradeableComponent::Storage,
-        // Custom   
-
+        // Custom storage vars
         // Stores information about freezed addresses
         freezes: LegacyMap::<ContractAddress, bool>,
         // If true, then transfers are validated by a 3rd party (marketplace)
@@ -223,10 +228,26 @@ mod trustERC20 {
         fn approve(ref self: ContractState, spender: ContractAddress, amount: u256) -> bool {
             self.erc20.approve(spender, amount)
         }
+
+        /// Transfers tokens from the caller to a recipient.
+        /// 
+        /// Arguments:
+        ///     - `recipient` - The address to receive the tokens
+        ///     - `amount` - The amount of tokens to transfer
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the transfer was successful
+        /// 
+        /// Panics:
+        /// Panics if the transfer is denied by the validator, if either party is frozen,
+        /// if the recipient's balance exceeds their holding limit after the transfer
+        /// or if the trustline is at limit.
         fn transfer(ref self: ContractState, recipient: ContractAddress, amount: u256) -> bool {
             let caller = get_caller_address();
 
-            validate_transfer(caller, recipient, amount);
+            let can_transfer = is_transfer_valid(caller, recipient, amount);
+            assert(can_transfer, 'Transfer denied by validator');
+
             assert_not_frozen(caller, 'Sender frozen');
             assert_not_frozen(recipient, 'Recipient frozen');
             let result = self.erc20.transfer(recipient, amount);
@@ -236,13 +257,29 @@ mod trustERC20 {
 
             result
         }
+
+        /// Transfers tokens from one address to another using the allowance mechanism.
+        /// Arguments:
+        ///     - `sender` - The address to transfer the tokens
+        ///     - `recipient` - The address to receive the tokens
+        ///     - `amount` - The amount of tokens to transfer
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the transfer was successful
+        /// 
+        /// Panics:
+        /// Panics if the transfer is denied by the validator, if either party is frozen,
+        /// if the recipient's balance exceeds their holding limit after the transfer
+        /// or if the trustline is at limit.
         fn transfer_from(
             ref self: ContractState,
             sender: ContractAddress,
             recipient: ContractAddress,
             amount: u256
         ) -> bool {
-            validate_transfer(sender, recipient, amount);
+            let can_transfer = is_transfer_valid(sender, recipient, amount);
+            assert(can_transfer, 'Transfer denied by validator');
+
             let result = self.erc20.transfer_from(sender, recipient, amount);
             assert_not_frozen(sender, 'Sender frozen');
             assert_not_frozen(recipient, 'Recipient frozen');
@@ -252,56 +289,130 @@ mod trustERC20 {
             result
         }
 
+        // TODO: Uncomment if neccessary
         // fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {
         //     self.accesscontrol.assert_only_role(ISSUER_ROLE);
-
-        //     // TODO: Is this correct?
         //     let marketplace = self.marketplace.read();
         //     assert(recipient == marketplace, 'Mint only to marketplace');
-
         //     self.erc20._mint(recipient, amount)
         // }
         // fn burn(ref self: ContractState, account: ContractAddress, amount: u256) {
         //     self.accesscontrol.assert_only_role(ISSUER_ROLE);
-
-        //     // TODO: Is this correct?
         //     let marketplace = self.marketplace.read();
         //     assert(account == marketplace, 'Burn only from marketplace');
-
         //     self.erc20._burn(account, amount)
         // }
 
         // ITrustlines
+        /// Proposes a new trustline between the caller and another party.
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the other party in the proposed trustline
+        ///     - `amount` - The proposed amount for the trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the proposal was successfully created
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineProposed` event upon successful creation of the proposal
         fn propose_new_trustline(
             ref self: ContractState, other_party: ContractAddress, amount: u256
         ) -> bool {
             self.trustlines.propose_new_trustline(other_party, amount)
         }
+
+        /// Accepts a proposed new trustline.
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the party who proposed the trustline
+        ///     - `amount` - The amount the caller agrees to for the trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the trustline was successfully established
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineEstablished` event upon successful acceptance
         fn accept_new_trustline_proposal(
             ref self: ContractState, other_party: ContractAddress, amount: u256
         ) -> bool {
             self.trustlines.accept_new_trustline_proposal(other_party, amount)
         }
+
+        /// Proposes a modification to an existing trustline.
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the other party in the trustline
+        ///     - `amount` - The new proposed amount for the trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the modification proposal was successfully created
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineProposed` event upon successful creation of the proposal
         fn propose_modify_trustline(
             ref self: ContractState, other_party: ContractAddress, amount: u256
         ) -> bool {
             self.trustlines.propose_modify_trustline(other_party, amount)
         }
+
+        /// Accepts a proposed modification to an existing trustline.
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the party who proposed the modification
+        ///     - `amount` - The amount the caller agrees to for the modified trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the trustline was successfully modified
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineEstablished` event upon successful acceptance
         fn accept_modify_trustline_proposal(
             ref self: ContractState, other_party: ContractAddress, amount: u256
         ) -> bool {
             self.trustlines.accept_modify_trustline_proposal(other_party, amount)
         }
+
+        /// Cancels a trustline proposal.
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the other party in the proposed trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the proposal was successfully cancelled
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineProposed` event with amount 0 upon successful cancellation
         fn cancel_trustline_proposal(
             ref self: ContractState, other_party: ContractAddress
         ) -> bool {
             self.trustlines.cancel_trustline_proposal(other_party)
         }
+
+        /// Retrieves the trustline between two parties.
+        /// 
+        /// Arguments:
+        ///     - `party_a` - The address of one party in the trustline
+        ///     - `party_b` - The address of the other party in the trustline
+        /// 
+        /// Returns:
+        ///     - Returns the `Trustline` struct representing the trustline between the parties
         fn get_trustline(
             self: @ContractState, party_a: ContractAddress, party_b: ContractAddress,
         ) -> Trustline {
             self.trustlines.get_trustline(party_a, party_b)
         }
+
+        /// Decreases the amount of an existing trustline.
+        /// 
+        /// Arguments:
+        ///     - `other_party` - The address of the other party in the trustline
+        ///     - `amount` - The new, decreased amount for the trustline
+        /// 
+        /// Returns:
+        ///     - Returns `true` if the trustline was successfully decreased
+        /// 
+        /// Events:
+        ///     - Emits a `TrustlineEstablished` event upon successful decrease
         fn decrease_trustline(
             ref self: ContractState, other_party: ContractAddress, amount: u256
         ) -> bool {
@@ -309,23 +420,63 @@ mod trustERC20 {
         }
 
         // IHoldingLimits
+        /// Sets the hard holding limit for a specific address.
+        /// 
+        /// Arguments:
+        ///     - `address` - The address for which to set the limit
+        ///     - `new_hard_limit` - The new hard limit value
+        /// 
+        /// Events:
+        ///     - Emits a `HoldingHardLimitSet` event upon successful limit set
         fn set_hard_holding_limit(
             ref self: ContractState, address: ContractAddress, new_hard_limit: u256
         ) {
             self.accesscontrol.assert_only_role(ISSUER_ROLE);
             self.holding_limits.set_hard_holding_limit(address, new_hard_limit)
         }
+
+        /// Sets the soft holding limit for the caller's address.
+        /// 
+        /// Arguments:
+        ///     - `new_soft_limit` - The new soft limit value
+        /// 
+        /// Events:
+        ///     - Emits a `HoldingSoftLimitSet` event upon successful limit set
         fn set_soft_holding_limit(ref self: ContractState, new_soft_limit: u256) {
             // No access control needed here,
             // set_soft_holding_limit sets the limit for caller
             self.holding_limits.set_soft_holding_limit(new_soft_limit)
         }
+
+        /// Retrieves the holding limits for a specific address.
+        /// 
+        /// Arguments:
+        ///     - `address` - The address for which to get the limits
+        /// 
+        /// Returns:
+        ///     - Returns the `HoldingLimit` struct representing the limits for the address
         fn get_holding_limits(self: @ContractState, address: ContractAddress) -> HoldingLimit {
             self.holding_limits.get_holding_limits(address)
         }
+
+        /// Retrieves the soft holding limit for a specific address.
+        /// 
+        /// Arguments:
+        ///     - `address` - The address for which to get the soft limit
+        /// 
+        /// Returns:
+        ///     - Returns the soft holding limit as a u256
         fn get_soft_holding_limit(self: @ContractState, address: ContractAddress) -> u256 {
             self.holding_limits.get_soft_holding_limit(address)
         }
+
+        /// Retrieves the hard holding limit for a specific address.
+        /// 
+        /// Arguments:
+        ///     - `address` - The address for which to get the hard limit
+        /// 
+        /// Returns:
+        ///     - Returns the hard holding limit as a u256
         fn get_hard_holding_limit(self: @ContractState, address: ContractAddress) -> u256 {
             self.holding_limits.get_hard_holding_limit(address)
         }
@@ -347,13 +498,28 @@ mod trustERC20 {
             self.accesscontrol.renounce_role(role, account)
         }
 
-        // Freeze Function
+        /// Sets the freeze status for a given address.
+        /// 
+        /// Arguments:
+        ///     - `address` - The address to set the freeze status for
+        ///     - `is_frozen` - The new freeze status
+        /// 
+        /// Panics
+        ///     - Panics if the caller does not have the ISSUER_ROLE.
         fn set_freeze_status(ref self: ContractState, address: ContractAddress, is_frozen: bool) {
             self.accesscontrol.assert_only_role(ISSUER_ROLE);
             self.freezes.write(address, is_frozen)
         }
 
-        // Asset pull function
+        /// Forcibly transfers assets from one address to another.
+        /// 
+        /// Arguments:
+        ///     - `from` - The address to transfer assets from
+        ///     - `to` - The address to transfer assets to
+        ///     - `amount` - The amount of assets to transfer
+        /// 
+        /// Panics:
+        ///     - Panics if the caller does not have the ISSUER_ROLE.
         fn pull_assets(
             ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256
         ) {
@@ -363,48 +529,98 @@ mod trustERC20 {
             self.erc20._transfer(from, to, amount);
         }
 
-        // Set transfer validation status
+        /// Sets whether transfers should be validated by the marketplace contract.
+        /// 
+        /// Arguments:
+        ///     - `should_validate_transfer` - Whether to enable transfer validation
+        /// 
+        /// Panics:
+        ///     - Panics if the caller does not have the ISSUER_ROLE.
         fn set_transfer_validation_status(ref self: ContractState, should_validate_transfer: bool) {
-            // TODO: Is this something ISSUER should do? Or OWNER?           
             self.accesscontrol.assert_only_role(ISSUER_ROLE);
             self.validate_transfers.write(should_validate_transfer);
         }
 
+        /// Gets the current transfer validation status.
+        /// 
+        /// Returns:
+        ///     - `bool` - Returns true if transfer validation is enabled
         fn get_transfer_validation_status(self: @ContractState) -> bool {
             self.validate_transfers.read()
         }
 
-        // Upgrade
+        /// Upgrades the contract to a new implementation.
+        /// 
+        /// Arguments:
+        ///     - `new_class_hash` - The class hash of the new implementation
+        /// 
+        /// Panics:
+        ///     - Panics if the caller does not have the OWNER_ROLE.
         fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
             self.accesscontrol.assert_only_role(OWNER_ROLE);
             self.upgrades._upgrade(new_class_hash);
         }
     }
 
-    // Helper functions
+    ////////////////////////////////////
+    /// Helper functions
+    ////////////////////////////////////
+
+    /// Checks if the balance of an address is within its holding limit.
+    /// 
+    /// Arguments:
+    ///     - `address` - The address to check
+    /// 
+    /// Panics:
+    ///     - Panics if the balance exceeds the address's holding limit.
     fn assert_balance_not_over_holding_limit(address: ContractAddress) {
         let state = unsafe_new_contract_state();
 
         let balance = state.erc20.ERC20_balances.read(address);
         state.holding_limits.validate_holdings(address, balance);
     }
+
+    /// Checks if an address is not frozen.
+    /// 
+    /// Arguments:
+    ///     - `address` - The address to check
+    ///     - `err_msg` - The error message to display if the address is frozen
+    /// 
+    /// Panics:
+    ///     - Panics with the given error message if the address is frozen.
     fn assert_not_frozen(address: ContractAddress, err_msg: felt252) {
         let state = unsafe_new_contract_state();
 
         let is_frozen = state.freezes.read(address);
         assert(!is_frozen, err_msg);
     }
-    fn validate_transfer(sender: ContractAddress, recipient: ContractAddress, amount: u256) {
+
+    /// Checks if a transfer is valid according to the marketplace validator.
+    /// 
+    /// Arguments:
+    ///     - `sender` - The address sending tokens
+    ///     - `recipient` - The address receiving tokens
+    ///     - `amount` - The amount of tokens being transferred
+    /// 
+    /// Returns:
+    ///     - Returns `true` if the transfer is valid, or if validation is disabled
+    /// 
+    /// Panics:
+    ///     - Panics if validation is enabled but the validator address is not set.
+    fn is_transfer_valid(
+        sender: ContractAddress, recipient: ContractAddress, amount: u256
+    ) -> bool {
         let state = unsafe_new_contract_state();
         let should_validate = state.validate_transfers.read();
 
         if should_validate {
             let validator = state.marketplace.read();
             assert(!validator.is_zero(), 'Transfer validator not set');
-
             let validator_contract = ITransferValidatorDispatcher { contract_address: validator };
 
-            validator_contract.validate_transfer(sender, recipient, amount)
+            validator_contract.is_transfer_valid(sender, recipient, amount)
+        } else {
+            true
         }
     }
 }

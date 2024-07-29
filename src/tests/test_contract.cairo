@@ -15,8 +15,10 @@ use trustlines_erc::tests::utils::USER_3;
 use trustlines_erc::tests::utils::TEN_K;
 use trustlines_erc::tests::utils::FIFTY_K;
 
-
-use snforge_std::{declare, prank, CheatTarget, CheatSpan,};
+use snforge_std::{
+    declare, prank, CheatTarget, CheatSpan, start_mock_call, mock_call, ContractClass,
+    ContractClassTrait,
+};
 
 const FIVE_HUNDRED_K: u256 = 500000000000000000000000;
 
@@ -452,9 +454,6 @@ fn test_contract_pull_assets() {
 
 
 // TODO TESTS
-// Validate transfer
-//      - failing
-//      - ot failing
 // Transfer
 //     - Under trustline limit
 //     - Over trustline limit
