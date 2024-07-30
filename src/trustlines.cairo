@@ -460,9 +460,9 @@ pub(crate) mod TrustlinesComponent {
 
         ///////////////
         /// Note:
-        ///     - delete_trustline and modify_trustline currently disabled,
+        ///     - delete_trustline currently disabled,
         ///       uncomment if neccessary, however even if ie. some authority
-        ///       deleted or modified a trustline, users could just set it up again
+        ///       deleted a trustline, users could just set it up again
         ///       so these functions might be redundant
         ///////////////
         /// Function for deleting a trustline between two parties
