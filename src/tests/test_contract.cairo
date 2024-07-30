@@ -381,7 +381,6 @@ fn test_get_freeze_status() {
     token.set_freeze_status(USER_2(), true);
 
     assert(token.get_freeze_status(USER_2()), 'Should be frozen');
-
 }
 
 #[test]
