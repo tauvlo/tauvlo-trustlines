@@ -19,7 +19,7 @@ This project implements a trustlines-based ERC20 token smart contract in Cairo. 
 4. [Usage](#usage)
 5. [Contributing](#contributing)
 
-
+## Components
 ### Trustlines Component
 
 The Trustlines component allows users to establish bilateral lines (trustlines) with each other. Key features include:
@@ -72,6 +72,7 @@ The main contract, `trustERC20`, combines standard ERC20 functionality with the 
 - During trustline transfer, if recipient is the Marketplace, then the limit on transfer is disabled
 - When user decreases trustline, it could block the trustline if the usage is above new effective amount
 - When new trustline proposal is canceled, the trustline still exists, so to propose new limit again, `propose_modify_trustline` needs to be used
+- If transfer validation is enabled then Marketplace MUST be compatible with interface `ITransferValidator` in `src/contract.cairo`, otherwise all transfers might fail
 
 
 ### Roles and Permissions
