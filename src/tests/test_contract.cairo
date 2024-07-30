@@ -371,6 +371,20 @@ fn test_freeze_sender_frozen() {
 }
 
 #[test]
+fn test_get_freeze_status() {
+    let (token_address, token) = setup();
+
+    assert(!token.get_freeze_status(USER_1()), 'Should not be frozen');
+
+    // Freeze user 2
+    prank(CheatTarget::One(token_address), ISSUER(), CheatSpan::TargetCalls(1));
+    token.set_freeze_status(USER_2(), true);
+
+    assert(token.get_freeze_status(USER_2()), 'Should be frozen');
+
+}
+
+#[test]
 #[should_panic(expected: ('Recipient frozen',))]
 fn test_freeze_recipient_frozen() {
     let (token_address, token) = setup();

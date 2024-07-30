@@ -66,8 +66,9 @@ pub trait ItrustERC20<TState> {
     fn revoke_role(ref self: TState, role: felt252, account: ContractAddress);
     fn renounce_role(ref self: TState, role: felt252, account: ContractAddress);
 
-    // Freeze funtion
+    // Freeze function
     fn set_freeze_status(ref self: TState, address: ContractAddress, is_frozen: bool);
+    fn get_freeze_status(self: @TState, address: ContractAddress) -> bool;
 
     // Asset pull function
     fn pull_assets(ref self: TState, from: ContractAddress, to: ContractAddress, amount: u256);
@@ -184,6 +185,11 @@ mod trustERC20 {
         self.erc20._mint(recipient, initial_supply);
 
         self.accesscontrol.initializer();
+
+        assert(!recipient.is_zero(), 'Cant mint to zero');
+        assert(!owner.is_zero(), 'Owner is zero');
+        assert(!issuer.is_zero(), 'Issuer is zero');
+        assert(!marketplace.is_zero(), 'Marketplace is zero');
 
         // Owner can upgrade the contract and is overall admin
         self.accesscontrol._grant_role(DEFAULT_ADMIN_ROLE, owner);
@@ -519,6 +525,17 @@ mod trustERC20 {
         fn set_freeze_status(ref self: ContractState, address: ContractAddress, is_frozen: bool) {
             self.accesscontrol.assert_only_role(ISSUER_ROLE);
             self.freezes.write(address, is_frozen)
+        }
+
+        /// Gets the freeze status for a given address.
+        /// 
+        /// Arguments:
+        ///     - `address` - The address to get the freeze status for
+        /// 
+        /// Returns:
+        ///     - `true` if given address is frozen
+        fn get_freeze_status(self: @ContractState, address: ContractAddress) -> bool {
+            self.freezes.read(address)
         }
 
         /// Forcibly transfers assets from one address to another.
