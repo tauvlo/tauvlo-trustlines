@@ -671,8 +671,8 @@ pub(crate) mod TrustlinesComponent {
             address1: ContractAddress,
             address2: ContractAddress,
         ) -> (ContractAddress, ContractAddress) {
-            let _a1: felt252 = address1.try_into().unwrap();
-            let _a2: felt252 = address2.try_into().unwrap();
+            let _a1: felt252 = address1.into();
+            let _a2: felt252 = address2.into();
 
             let _a1: u256 = _a1.into();
             let _a2: u256 = _a2.into();
